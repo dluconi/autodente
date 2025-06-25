@@ -1,0 +1,520 @@
+
+
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Input } from './ui/input';
+import { Button } from './ui/button';
+import { Label } from './ui/label';
+import { Textarea } from './ui/textarea'; // Importar Textarea
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Stethoscope, ArrowLeft, Calendar, Search, Home, Trash2 } from 'lucide-react';
+import API_URL from '../lib/api';
+
+const Agendamento = () => {
+  const [pacientes, setPacientes] = useState([]);
+  const [pacientesFiltrados, setPacientesFiltrados] = useState([]);
+  const [pacienteSelecionado, setPacienteSelecionado] = useState('');
+  const [buscaPaciente, setBuscaPaciente] = useState('');
+  const [data, setData] = useState('');
+  const [hora, setHora] = useState('');
+  const [observacao, setObservacao] = useState(''); // Novo estado para observacao
+  const [loading, setLoading] = useState(false);
+  const [showBusca, setShowBusca] = useState(false);
+
+  const carregarAgendamentos = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_URL}/api/appointments`);
+      const data = await response.json();
+      setAgendamentos(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar agendamentos:', error);
+      setAgendamentos([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // Carregar lista de pacientes
+    fetch(`${API_URL}/api/patients`)
+      .then(response => response.json())
+      .then(data => {
+        setPacientes(data);
+        setPacientesFiltrados(data);
+      })
+      .catch(error => console.error('Erro ao carregar pacientes:', error));
+    carregarAgendamentos(); // Carregar agendamentos ao iniciar
+  }, []);
+
+  useEffect(() => {
+    // Filtrar pacientes baseado na busca
+    if (buscaPaciente.trim() === '') {
+      setPacientesFiltrados(pacientes);
+    } else {
+      const filtrados = pacientes.filter(paciente => 
+        paciente.nome.toLowerCase().includes(buscaPaciente.toLowerCase()) ||
+        paciente.sobrenome?.toLowerCase().includes(buscaPaciente.toLowerCase()) ||
+        paciente.cpf?.includes(buscaPaciente)
+      );
+      setPacientesFiltrados(filtrados);
+    }
+  }, [buscaPaciente, pacientes]);
+
+  const handleAgendar = async () => {
+    if (!pacienteSelecionado) {
+      alert('Por favor, selecione um paciente.');
+      return;
+    }
+
+    if (!data || !hora) {
+      alert('Por favor, preencha a data e hora do agendamento.');
+      return;
+    }
+
+    setLoading(true);
+
+    const agendamentoData = {
+      patient_name: `${pacientes.find(p => p.id == pacienteSelecionado)?.nome} ${pacientes.find(p => p.id == pacienteSelecionado)?.sobrenome || ''}`,
+      appointment_date: data,
+      appointment_time: hora,
+      observacao: observacao // Incluir observacao no payload
+    };
+
+    try {
+      const response = await fetch(`${API_URL}/api/appointments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(agendamentoData),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert('Agendamento realizado com sucesso!');
+        // Limpar formulário
+        setPacienteSelecionado('');
+        setData('');
+        setHora('');
+        setObservacao(''); // Limpar observacao
+        setBuscaPaciente('');
+        setShowBusca(false);
+        carregarAgendamentos(); // Recarregar a lista de agendamentos
+      } else {
+        alert(`Erro: ${result.message}`);
+      }
+    } catch (error) {
+      alert('Erro ao realizar agendamento. Tente novamente.');
+      console.error('Erro:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePacienteChange = (value) => {
+    setPacienteSelecionado(value);
+    if (value) {
+      const paciente = pacientes.find(p => p.id.toString() === value);
+      setBuscaPaciente(paciente ? `${paciente.nome} ${paciente.sobrenome || ''}` : '');
+      setShowBusca(false);
+    }
+  };
+
+  const handleBuscaChange = (e) => {
+    setBuscaPaciente(e.target.value);
+    setShowBusca(true);
+    if (e.target.value) {
+      setPacienteSelecionado('');
+    }
+  };
+
+  const selecionarPacienteBusca = (paciente) => {
+    setPacienteSelecionado(paciente.id.toString());
+    setBuscaPaciente(`${paciente.nome} ${paciente.sobrenome || ''}`);
+    setShowBusca(false);
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center space-x-3">
+              <div className="bg-blue-600 p-2 rounded-full">
+                <Stethoscope className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-800">Dr. Lucca Spinelli</h1>
+                <p className="text-sm text-blue-600 font-medium">Endodontista</p>
+              </div>
+            </div>
+            <nav className="flex items-center space-x-4">
+              <Link to="/dashboard">
+                <Button variant="ghost" size="sm" className="flex items-center space-x-2">
+                  <Home className="h-4 w-4" />
+                  <span>Início</span>
+                </Button>
+              </Link>
+              <Link to="/dashboard">
+                <Button variant="ghost" size="sm" className="flex items-center space-x-2">
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Voltar</span>
+                </Button>
+              </Link>
+            </nav>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold text-gray-800 mb-2">Agendamento</h2>
+          <p className="text-gray-600">Agende consultas para pacientes existentes ou faça pré-cadastro</p>
+        </div>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Painel de Agendamento */}
+          <div className="lg:col-span-1">
+            <Card className="shadow-lg">
+              <CardHeader className="bg-purple-600 text-white">
+                <CardTitle className="flex items-center space-x-2">
+                  <Calendar className="h-5 w-5" />
+                  <span>Novo Agendamento</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <form onSubmit={(e) => { e.preventDefault(); handleAgendar(); }}>
+                  <div className="grid w-full items-center gap-6">
+                    
+                    {/* Busca de Paciente */}
+                    <div className="flex flex-col space-y-1.5">
+                      <Label htmlFor="busca-paciente">Buscar Paciente Existente</Label>
+                      <div className="relative">
+                        <div className="flex">
+                          <Input
+                            id="busca-paciente"
+                            placeholder="Digite o nome ou CPF do paciente"
+                            value={buscaPaciente}
+                            onChange={handleBuscaChange}
+                            onFocus={() => setShowBusca(true)}
+                            className="pr-10"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="ml-2"
+                            onClick={() => setShowBusca(!showBusca)}
+                          >
+                            <Search className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        
+                        {/* Lista de resultados da busca */}
+                        {showBusca && pacientesFiltrados.length > 0 && (
+                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                            {pacientesFiltrados.map((paciente) => (
+                              <div
+                                key={paciente.id}
+                                className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b"
+                                onClick={() => selecionarPacienteBusca(paciente)}
+                              >
+                                <div className="font-medium">{paciente.nome} {paciente.sobrenome || ''}</div>
+                                <div className="text-sm text-gray-600">CPF: {paciente.cpf || 'Não informado'}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="text-center text-gray-500 text-sm font-medium">
+                      Selecione um paciente existente para agendar
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="flex flex-col space-y-1.5">
+                        <Label htmlFor="data">Data</Label>
+                        <Input
+                          id="data"
+                          type="date"
+                          value={data}
+                          onChange={(e) => setData(e.target.value)}
+                          min={new Date().toISOString().split('T')[0]}
+                        />
+                      </div>
+
+                      <div className="flex flex-col space-y-1.5">
+                        <Label htmlFor="hora">Hora</Label>
+                        <Select value={hora} onValueChange={setHora}>
+                          <SelectTrigger id="hora">
+                            <SelectValue placeholder="Selecione a hora" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 48 }, (_, i) => {
+                              const hours = String(Math.floor(i / 2)).padStart(2, '0');
+                              const minutes = i % 2 === 0 ? '00' : '30';
+                              return `${hours}:${minutes}`;
+                            }).map(timeValue => (
+                              <SelectItem key={timeValue} value={timeValue}>
+                                {timeValue}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Campo Observação */}
+                      <div className="flex flex-col space-y-1.5">
+                        <Label htmlFor="observacao">Observação</Label>
+                        <Textarea
+                          id="observacao"
+                          placeholder="Digite alguma observação para o agendamento"
+                          value={observacao}
+                          onChange={(e) => setObservacao(e.target.value)}
+                          className="min-h-[100px]" // Tornar o campo mais largo (altura)
+                        />
+                      </div>
+                    </div>
+
+                    <Button 
+                      type="submit" 
+                      disabled={loading}
+                      className="w-full bg-purple-600 hover:bg-purple-700"
+                    >
+                      {loading ? 'Agendando...' : 'Agendar Consulta'}
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Calendário de Agendamentos */}
+          <div className="lg:col-span-2">
+            <CalendarioAgendamentos carregarAgendamentos={carregarAgendamentos} />
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+};
+
+// Componente do Calendário
+  const CalendarioAgendamentos = () => {
+  const [agendamentos, setAgendamentos] = useState([]);
+  const [mesAtual, setMesAtual] = useState(new Date());
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    carregarAgendamentos();
+  }, [mesAtual]);
+
+  const carregarAgendamentos = async () => {
+    try {
+      setLoading(true);
+      // Simular carregamento de agendamentos
+      const response = await fetch(`${API_URL}/api/appointments`);
+      const data = await response.json();
+      setAgendamentos(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar agendamentos:', error);
+      setAgendamentos([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const excluirAgendamento = async (agendamentoId) => {
+    if (window.confirm('Tem certeza que deseja excluir este agendamento?')) {
+      try {
+        const response = await fetch(`${API_URL}/api/appointments/${agendamentoId}`, {
+          method: 'DELETE',
+        });
+
+        if (response.ok) {
+          alert('Agendamento excluído com sucesso!');
+          carregarAgendamentos(); // Recarregar a lista
+        } else {
+          alert('Erro ao excluir agendamento');
+        }
+      } catch (error) {
+        alert('Erro de conexão com o servidor');
+        console.error('Erro:', error);
+      }
+    }
+  };
+
+  const getDiasDoMes = () => {
+    const ano = mesAtual.getFullYear();
+    const mes = mesAtual.getMonth();
+    const primeiroDia = new Date(ano, mes, 1);
+    const ultimoDia = new Date(ano, mes + 1, 0);
+    const diasDoMes = [];
+
+    // Adicionar dias vazios do início
+    for (let i = 0; i < primeiroDia.getDay(); i++) {
+      diasDoMes.push(null);
+    }
+
+    // Adicionar todos os dias do mês
+    for (let dia = 1; dia <= ultimoDia.getDate(); dia++) {
+      diasDoMes.push(new Date(ano, mes, dia));
+    }
+
+    return diasDoMes;
+  };
+
+  const getAgendamentosDoDia = (data) => {
+    if (!data) return [];
+    const dataStr = data.toISOString().split('T')[0];
+    return agendamentos.filter(ag => ag.appointment_date === dataStr);
+  };
+
+  const proximoMes = () => {
+    setMesAtual(new Date(mesAtual.getFullYear(), mesAtual.getMonth() + 1, 1));
+  };
+
+  const mesAnterior = () => {
+    setMesAtual(new Date(mesAtual.getFullYear(), mesAtual.getMonth() - 1, 1));
+  };
+
+  const formatarMes = (data) => {
+    return data.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  };
+
+  const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+  return (
+    <Card className="shadow-lg">
+      <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+        <div className="flex justify-between items-center">
+          <CardTitle className="flex items-center space-x-2">
+            <Calendar className="h-5 w-5" />
+            <span>Calendário de Agendamentos</span>
+          </CardTitle>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={mesAnterior}
+              className="text-white hover:bg-white/20"
+            >
+              ←
+            </Button>
+            <span className="font-medium capitalize min-w-[200px] text-center">
+              {formatarMes(mesAtual)}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={proximoMes}
+              className="text-white hover:bg-white/20"
+            >
+              →
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0">
+        {loading ? (
+          <div className="p-8 text-center text-gray-500">
+            Carregando agendamentos...
+          </div>
+        ) : (
+          <div className="grid grid-cols-7 gap-0">
+            {/* Cabeçalho dos dias da semana */}
+            {diasSemana.map((dia) => (
+              <div
+                key={dia}
+                className="p-3 text-center font-medium text-gray-700 bg-gray-50 border-b"
+              >
+                {dia}
+              </div>
+            ))}
+            
+            {/* Dias do mês */}
+            {getDiasDoMes().map((data, index) => {
+              const agendamentosDoDia = getAgendamentosDoDia(data);
+              const isHoje = data && data.toDateString() === new Date().toDateString();
+              const temAgendamento = agendamentosDoDia.length > 0;
+              
+              return (
+                <div
+                  key={index}
+                  className={`min-h-[100px] p-2 border-b border-r border-gray-200 ${
+                    data ? 'bg-white hover:bg-gray-50' : 'bg-gray-100'
+                  } ${isHoje ? 'bg-blue-50 border-blue-200' : ''}`}
+                >
+                  {data && (
+                    <>
+                      <div className={`text-sm font-medium mb-1 ${
+                        isHoje ? 'text-blue-600' : 'text-gray-700'
+                      }`}>
+                        {data.getDate()}
+                        {isHoje && (
+                          <span className="ml-1 text-xs bg-blue-600 text-white px-1 rounded">
+                            Hoje
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* Agendamentos do dia */}
+                      <div className="space-y-1">
+                        {agendamentosDoDia.slice(0, 3).map((agendamento, idx) => (
+                          <div
+                            key={idx}
+                            className="text-xs p-1 rounded bg-purple-100 text-purple-800 border-l-2 border-purple-400 group relative"
+                          >
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium truncate">
+                                  {agendamento.patient_name}
+                                </div>
+                                <div className="text-purple-600">
+                                  {agendamento.appointment_time?.substring(0, 5)}
+                                </div>
+                                {agendamento.observacao && (
+                                  <div className="text-xs text-gray-500 mt-0.5 truncate" title={agendamento.observacao}>
+                                    {agendamento.observacao}
+                                  </div>
+                                )}
+                              </div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  excluirAgendamento(agendamento.id);
+                                }}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 p-1 hover:bg-red-200 rounded"
+                                title="Excluir agendamento"
+                              >
+                                <Trash2 className="h-3 w-3 text-red-600" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                        
+                        {agendamentosDoDia.length > 3 && (
+                          <div className="text-xs text-gray-500 text-center">
+                            +{agendamentosDoDia.length - 3} mais
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+export default Agendamento;
+
+
