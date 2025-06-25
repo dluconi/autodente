@@ -74,6 +74,9 @@ class Patient(db.Model):
     telefone_representante = db.Column(db.String(20), nullable=True)
     nascimento_representante = db.Column(db.String(50), nullable=True)
 
+    # Controle de cadastro
+    is_fully_registered = db.Column(db.Boolean, default=False, nullable=False)
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -118,7 +121,8 @@ class Patient(db.Model):
             'cpf_representante': self.cpf_representante,
             'rg_representante': self.rg_representante,
             'telefone_representante': self.telefone_representante,
-            'nascimento_representante': self.nascimento_representante
+            'nascimento_representante': self.nascimento_representante,
+            'is_fully_registered': self.is_fully_registered
         }
 
 class Budget(db.Model):
@@ -187,8 +191,9 @@ class Appointment(db.Model):
             'patient_name': patient_name,
             'appointment_date': self.appointment_date.isoformat(),
             'appointment_time': self.appointment_time,
-            'observacao': self.observacao, # Incluir observacao
-            'created_at': self.created_at.isoformat()
+            'observacao': self.observacao, 
+            'created_at': self.created_at.isoformat(),
+            'patient_is_fully_registered': self.patient.is_fully_registered if self.patient else False 
         }
 
 class HistoricoPaciente(db.Model):
@@ -275,7 +280,8 @@ def create_patient():
             cpf_representante=data.get("cpf_representante"),
             rg_representante=data.get("rg_representante"),
             telefone_representante=data.get("telefone_representante"),
-            nascimento_representante=data.get("nascimento_representante")
+            nascimento_representante=data.get("nascimento_representante"),
+            is_fully_registered=True # Cadastro completo por esta rota
         )
         
         db.session.add(patient)
@@ -316,6 +322,7 @@ def update_patient(patient_id):
         if "data_nascimento" in data and data["data_nascimento"]:
             patient.data_nascimento = datetime.strptime(data["data_nascimento"], "%Y-%m-%d").date()
         
+        patient.is_fully_registered = True # Atualização implica em cadastro completo
         db.session.commit()
         return jsonify({"success": True, "message": "Paciente atualizado com sucesso"})
         
@@ -353,15 +360,42 @@ def create_appointment():
     except ValueError:
         return jsonify({"success": False, "message": "Formato de data inválido. Use YYYY-MM-DD."}), 400
 
-    patient = Patient.query.filter_by(nome=patient_name).first()
+    patient_id_frontend = data.get("patient_id") # Verificar se o frontend envia o ID do paciente selecionado
+    patient = None
+
+    if patient_id_frontend:
+        patient = Patient.query.get(patient_id_frontend)
+        if not patient:
+             return jsonify({"success": False, "message": f"Paciente com ID {patient_id_frontend} não encontrado."}), 404
+    else:
+        # Tentar encontrar paciente pelo nome completo (nome e sobrenome)
+        # Isso assume que patient_name pode conter "Nome Sobrenome"
+        parts = patient_name.split(" ", 1)
+        nome_busca = parts[0]
+        sobrenome_busca = parts[1] if len(parts) > 1 else None
+
+        if sobrenome_busca:
+            patient = Patient.query.filter(Patient.nome.ilike(nome_busca), Patient.sobrenome.ilike(sobrenome_busca)).first()
+        else:
+            # Se não há sobrenome, busca apenas pelo primeiro nome (menos preciso)
+            patient = Patient.query.filter(Patient.nome.ilike(nome_busca), Patient.sobrenome.is_(None)).first()
+            if not patient: # Tenta uma busca mais genérica se a anterior falhar
+                 patient = Patient.query.filter(Patient.nome.ilike(patient_name)).first()
+
+
+    is_new_patient = False
     if not patient:
-        # Se o paciente não existe, cria um novo com o nome fornecido
-        # No entanto, para a lógica de agendamento, idealmente o paciente já deveria existir
-        # ou ser selecionado de uma lista. Considerar se a criação automática é desejada.
-        # Por ora, vamos manter, mas focando na validação do horário.
-        patient = Patient(nome=patient_name) # Esta linha pode precisar de ajuste se o nome completo não for único
+        # Se o paciente não existe, cria um novo (pré-cadastro)
+        # O campo is_fully_registered será adicionado ao modelo Patient depois
+        new_patient_name_parts = patient_name.split(" ", 1)
+        patient = Patient(
+            nome=new_patient_name_parts[0],
+            sobrenome=new_patient_name_parts[1] if len(new_patient_name_parts) > 1 else None,
+            is_fully_registered=False # Marcar como não totalmente registrado
+        )
         db.session.add(patient)
-        # db.session.commit() # Commit será feito junto com o agendamento ou se falhar.
+        is_new_patient = True
+        # db.session.flush() # Para obter o ID se necessário antes do commit principal
 
     # Verificar agendamento duplicado (mesma data e hora para qualquer paciente)
     existing_appointment = Appointment.query.filter_by(
@@ -415,6 +449,17 @@ def get_appointments_tomorrow():
     tomorrow = datetime.now().date() + timedelta(days=1)
     appointments = Appointment.query.filter_by(appointment_date=tomorrow).all()
     return jsonify([appointment.to_dict() for appointment in appointments])
+
+@app.route("/api/appointments/<int:appointment_id>", methods=["DELETE"])
+def delete_appointment(appointment_id):
+    try:
+        appointment = Appointment.query.get_or_404(appointment_id)
+        db.session.delete(appointment)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Agendamento excluído com sucesso"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": f"Erro ao excluir agendamento: {str(e)}"}), 500
 
 @app.route("/api/budgets", methods=["POST", "OPTIONS"])
 def create_budget():

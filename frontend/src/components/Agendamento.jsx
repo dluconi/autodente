@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom'; // Adicionado useNavigate
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
@@ -75,12 +75,27 @@ const Agendamento = () => {
 
     setLoading(true);
 
-    const agendamentoData = {
-      patient_name: `${pacientes.find(p => p.id == pacienteSelecionado)?.nome} ${pacientes.find(p => p.id == pacienteSelecionado)?.sobrenome || ''}`,
+    let agendamentoData = {
       appointment_date: data,
       appointment_time: hora,
-      observacao: observacao // Incluir observacao no payload
+      observacao: observacao
     };
+
+    if (pacienteSelecionado) { // ID do paciente selecionado da busca
+      const pacienteObj = pacientes.find(p => p.id.toString() === pacienteSelecionado);
+      agendamentoData.patient_id = parseInt(pacienteSelecionado, 10);
+      agendamentoData.patient_name = pacienteObj ? `${pacienteObj.nome} ${pacienteObj.sobrenome || ''}`.trim() : buscaPaciente; // Nome para referência, backend usará ID
+    } else { // Novo paciente ou nome digitado manualmente
+      agendamentoData.patient_name = buscaPaciente.trim();
+    }
+    
+    // Validação adicional para nome do paciente
+    if (!agendamentoData.patient_name && !agendamentoData.patient_id) {
+      alert('Por favor, selecione ou digite o nome do paciente.');
+      setLoading(false);
+      return;
+    }
+
 
     try {
       const response = await fetch(`${API_URL}/api/appointments`, {
@@ -214,7 +229,7 @@ const Agendamento = () => {
                         </div>
                         
                         {/* Lista de resultados da busca */}
-                        {showBusca && pacientesFiltrados.length > 0 && (
+                        {showBusca && buscaPaciente.trim() !== '' && pacientesFiltrados.length > 0 && (
                           <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
                             {pacientesFiltrados.map((paciente) => (
                               <div
@@ -253,10 +268,17 @@ const Agendamento = () => {
                           <SelectTrigger id="hora">
                             <SelectValue placeholder="Selecione a hora" />
                           </SelectTrigger>
-                          <SelectContent>
-                            {Array.from({ length: 48 }, (_, i) => {
-                              const hours = String(Math.floor(i / 2)).padStart(2, '0');
-                              const minutes = i % 2 === 0 ? '00' : '30';
+                          <SelectContent 
+                            position="popper" 
+                            side="bottom" 
+                            sideOffset={5} 
+                            align="center"
+                            // avoidCollisions={false} // Descomente para testar se a prevenção de colisão está causando o flip
+                          >
+                            {Array.from({ length: (23 - 6 + 1) * 2 -1 }, (_, i) => { // De 06:00 a 23:30
+                              const totalMinutes = (6 * 60) + (i * 30);
+                              const hours = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
+                              const minutes = String(totalMinutes % 60).padStart(2, '0');
                               return `${hours}:${minutes}`;
                             }).map(timeValue => (
                               <SelectItem key={timeValue} value={timeValue}>
@@ -308,6 +330,7 @@ const Agendamento = () => {
   const [agendamentos, setAgendamentos] = useState([]);
   const [mesAtual, setMesAtual] = useState(new Date());
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate(); // Hook para navegação
 
   useEffect(() => {
     carregarAgendamentos();
@@ -464,10 +487,19 @@ const Agendamento = () => {
                       
                       {/* Agendamentos do dia */}
                       <div className="space-y-1">
-                        {agendamentosDoDia.slice(0, 3).map((agendamento, idx) => (
+                        {agendamentosDoDia.map((agendamento, idx) => (
                           <div
                             key={idx}
-                            className="text-xs p-1 rounded bg-purple-100 text-purple-800 border-l-2 border-purple-400 group relative"
+                            className={`text-xs p-1 rounded border-l-2 group relative cursor-pointer ${
+                              agendamento.patient_is_fully_registered === false
+                                ? 'bg-red-100 text-red-800 border-red-400 hover:bg-red-200'
+                                : 'bg-purple-100 text-purple-800 border-purple-400 hover:bg-purple-200'
+                            }`}
+                            onClick={() => {
+                              if (agendamento.patient_is_fully_registered === false) {
+                                navigate(`/pacientes/editar/${agendamento.patient_id}`);
+                              }
+                            }}
                           >
                             <div className="flex justify-between items-start">
                               <div className="flex-1 min-w-0">
@@ -497,11 +529,7 @@ const Agendamento = () => {
                           </div>
                         ))}
                         
-                        {agendamentosDoDia.length > 3 && (
-                          <div className="text-xs text-gray-500 text-center">
-                            +{agendamentosDoDia.length - 3} mais
-                          </div>
-                        )}
+                        {/* Removida a lógica de "+X mais" */}
                       </div>
                     </>
                   )}

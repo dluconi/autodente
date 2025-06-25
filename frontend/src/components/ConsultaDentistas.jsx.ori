@@ -17,28 +17,34 @@ const ConsultaDentistas = () => {
   const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
-    // Usaremos um debounce para evitar requisições excessivas enquanto o usuário digita
-    const handler = setTimeout(() => {
-      fetchPatients(searchTerm);
-    }, 300); // 300ms de debounce
+    fetchPatients()
+  }, [])
 
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [searchTerm]) // Re-executa quando searchTerm muda
+  useEffect(() => {
+    if (searchTerm) {
+      const filtered = patients.filter(dentist => {
+        if (!dentist) return false;
+        return (
+          (dentist.nome && dentist.nome.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (dentist.sobrenome && dentist.sobrenome.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (dentist.cpf && dentist.cpf.includes(searchTerm)) ||
+          (dentist.email && dentist.email.toLowerCase().includes(searchTerm.toLowerCase()))
+        );
+      });
+      setFilteredPatients(filtered)
+    } else {
+      setFilteredPatients(patients)
+    }
+  }, [searchTerm, patients])
 
-  const fetchPatients = async (currentSearchTerm = '') => {
-    setLoading(true);
-    setError('');
+  const fetchPatients = async () => {
     try {
-      // Adiciona o termo de busca como query param
-      const response = await fetch(`${API_URL}/api/patients?search=${encodeURIComponent(currentSearchTerm)}`);    
-      const data = await response.json();
-      setPatients(data); // Armazena os pacientes retornados (já filtrados pelo backend)
-      setFilteredPatients(data); // Atualiza os pacientes filtrados para exibição
+      const response = await fetch(`${API_URL}/api/patients`);    
+      const data = await response.json()
+      setPatients(data)
+      setFilteredPatients(data)
     } catch (err) {
-      console.error("Erro ao buscar pacientes:", err);
-      setError('Erro ao carregar pacientes. Verifique a conexão ou tente mais tarde.');
+      setError('Erro ao carregar pacientes')
     } finally {
       setLoading(false)
     }
