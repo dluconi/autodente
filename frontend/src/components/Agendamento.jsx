@@ -1,14 +1,12 @@
-
-
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom'; // Adicionado useNavigate
+import React, { useState, useEffect, useMemo } from 'react'; // Importado useMemo
+import { Link, useNavigate } from 'react-router-dom'; 
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea'; // Importar Textarea
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Stethoscope, ArrowLeft, Calendar, Search, Home, Trash2 } from 'lucide-react';
+import { Stethoscope, ArrowLeft, Calendar, Search, Home, Trash2, Edit } from 'lucide-react'; // Adicionado Edit
 import API_URL from '../lib/api';
 
 const Agendamento = () => {
@@ -18,23 +16,11 @@ const Agendamento = () => {
   const [buscaPaciente, setBuscaPaciente] = useState('');
   const [data, setData] = useState('');
   const [hora, setHora] = useState('');
-  const [observacao, setObservacao] = useState(''); // Novo estado para observacao
-  const [loading, setLoading] = useState(false);
+  const [duracao, setDuracao] = useState('30'); // Novo estado para duracao, em minutos
+  const [observacao, setObservacao] = useState(''); 
+  const [loading, setLoading] = useState(false); 
   const [showBusca, setShowBusca] = useState(false);
-
-  const carregarAgendamentos = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`${API_URL}/api/appointments`);
-      const data = await response.json();
-      setAgendamentos(data || []);
-    } catch (error) {
-      console.error('Erro ao carregar agendamentos:', error);
-      setAgendamentos([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // A função carregarAgendamentos e o estado de agendamentos agora estão dentro de CalendarioAgendamentos
 
   useEffect(() => {
     // Carregar lista de pacientes
@@ -45,7 +31,7 @@ const Agendamento = () => {
         setPacientesFiltrados(data);
       })
       .catch(error => console.error('Erro ao carregar pacientes:', error));
-    carregarAgendamentos(); // Carregar agendamentos ao iniciar
+    // A chamada para carregarAgendamentos foi removida daqui, pois CalendarioAgendamentos cuida disso.
   }, []);
 
   useEffect(() => {
@@ -78,18 +64,19 @@ const Agendamento = () => {
     let agendamentoData = {
       appointment_date: data,
       appointment_time: hora,
-      observacao: observacao
+      observacao: observacao,
+      duration_minutes: parseInt(duracao, 10) // Adicionar duracao
     };
 
     if (pacienteSelecionado) { // ID do paciente selecionado da busca
       const pacienteObj = pacientes.find(p => p.id.toString() === pacienteSelecionado);
       agendamentoData.patient_id = parseInt(pacienteSelecionado, 10);
-      agendamentoData.patient_name = pacienteObj ? `${pacienteObj.nome} ${pacienteObj.sobrenome || ''}`.trim() : buscaPaciente; // Nome para referência, backend usará ID
+      agendamentoData.patient_name = pacienteObj ? `${pacienteObj.nome} ${pacienteObj.sobrenome || ''}`.trim() : buscaPaciente; // Nome para referÃªncia, backend usarÃ¡ ID
     } else { // Novo paciente ou nome digitado manualmente
       agendamentoData.patient_name = buscaPaciente.trim();
     }
     
-    // Validação adicional para nome do paciente
+    // ValidaÃ§Ã£o adicional para nome do paciente
     if (!agendamentoData.patient_name && !agendamentoData.patient_id) {
       alert('Por favor, selecione ou digite o nome do paciente.');
       setLoading(false);
@@ -110,14 +97,17 @@ const Agendamento = () => {
 
       if (result.success) {
         alert('Agendamento realizado com sucesso!');
-        // Limpar formulário
+        // Limpar formulÃ¡rio
         setPacienteSelecionado('');
         setData('');
         setHora('');
+        setDuracao('30'); // Resetar duracao para o padrão
         setObservacao(''); // Limpar observacao
         setBuscaPaciente('');
         setShowBusca(false);
-        carregarAgendamentos(); // Recarregar a lista de agendamentos
+        // A chamada a carregarAgendamentos() que existia aqui foi corretamente removida na ação anterior.
+        // Se o erro persistir, ele deve estar em outro local ou a remoção anterior não foi efetiva.
+        // Esta linha é apenas para garantir que não há uma chamada aqui.
       } else {
         alert(`Erro: ${result.message}`);
       }
@@ -170,7 +160,7 @@ const Agendamento = () => {
               <Link to="/dashboard">
                 <Button variant="ghost" size="sm" className="flex items-center space-x-2">
                   <Home className="h-4 w-4" />
-                  <span>Início</span>
+                  <span>Inicio</span>
                 </Button>
               </Link>
               <Link to="/dashboard">
@@ -187,7 +177,7 @@ const Agendamento = () => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-gray-800 mb-2">Agendamento</h2>
-          <p className="text-gray-600">Agende consultas para pacientes existentes ou faça pré-cadastro</p>
+          <p className="text-gray-600">Agende consultas para pacientes existentes ou faca pre-cadastro</p>
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -238,7 +228,7 @@ const Agendamento = () => {
                                 onClick={() => selecionarPacienteBusca(paciente)}
                               >
                                 <div className="font-medium">{paciente.nome} {paciente.sobrenome || ''}</div>
-                                <div className="text-sm text-gray-600">CPF: {paciente.cpf || 'Não informado'}</div>
+                                <div className="text-sm text-gray-600">CPF: {paciente.cpf || 'Nao informado'}</div>
                               </div>
                             ))}
                           </div>
@@ -273,10 +263,11 @@ const Agendamento = () => {
                             side="bottom" 
                             sideOffset={5} 
                             align="center"
-                            // avoidCollisions={false} // Descomente para testar se a prevenção de colisão está causando o flip
+                            // avoidCollisions={false} // Descomente para testar se a prevencao de colisao esta causando o flip
                           >
-                            {Array.from({ length: (23 - 6 + 1) * 2 -1 }, (_, i) => { // De 06:00 a 23:30
-                              const totalMinutes = (6 * 60) + (i * 30);
+                            {/* Gera horários de 07:00 a 18:30 */}
+                            {Array.from({ length: ((18 - 7) * 2) + 1 }, (_, i) => { 
+                              const totalMinutes = (7 * 60) + (i * 30);
                               const hours = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
                               const minutes = String(totalMinutes % 60).padStart(2, '0');
                               return `${hours}:${minutes}`;
@@ -289,12 +280,28 @@ const Agendamento = () => {
                         </Select>
                       </div>
 
-                      {/* Campo Observação */}
+                      {/* Campo Duracao */}
                       <div className="flex flex-col space-y-1.5">
-                        <Label htmlFor="observacao">Observação</Label>
+                        <Label htmlFor="duracao">Duracao</Label>
+                        <Select value={duracao} onValueChange={setDuracao}>
+                          <SelectTrigger id="duracao">
+                            <SelectValue placeholder="Selecione a duracao" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="30">30 minutos</SelectItem>
+                            <SelectItem value="60">1 hora</SelectItem>
+                            <SelectItem value="90">1 hora e 30 min</SelectItem>
+                            <SelectItem value="120">2 horas</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Campo Observacao */}
+                      <div className="flex flex-col space-y-1.5">
+                        <Label htmlFor="observacao">Observacao</Label>
                         <Textarea
                           id="observacao"
-                          placeholder="Digite alguma observação para o agendamento"
+                          placeholder="Digite alguma observacao para o agendamento"
                           value={observacao}
                           onChange={(e) => setObservacao(e.target.value)}
                           className="min-h-[100px]" // Tornar o campo mais largo (altura)
@@ -315,9 +322,9 @@ const Agendamento = () => {
             </Card>
           </div>
 
-          {/* Calendário de Agendamentos */}
+          {/* Calendario de Agendamentos */}
           <div className="lg:col-span-2">
-            <CalendarioAgendamentos carregarAgendamentos={carregarAgendamentos} />
+            <CalendarioAgendamentos />
           </div>
         </div>
       </main>
@@ -325,29 +332,114 @@ const Agendamento = () => {
   );
 };
 
-// Componente do Calendário
+// Funções helper para manipulação de datas da semana
+const getInicioDaSemana = (date) => {
+  const d = new Date(date);
+  const day = d.getDay(); // 0 (Sun) - 6 (Sat)
+  const diff = d.getDate() - day; // Ajusta para o domingo
+  return new Date(d.setDate(diff));
+};
+
+const getDiasDaSemana = (startDate) => {
+  const week = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(startDate);
+    d.setDate(startDate.getDate() + i);
+    week.push(d);
+  }
+  return week;
+};
+
+// Gera horários de 07:00 a 18:30 em intervalos de 30 minutos
+const HORARIOS_DO_DIA = (() => {
+  const horarios = [];
+  // De 7:00 (420 min) a 18:30 (1110 min). Total de 11.5 horas = 23 slots. Loop de i = 0 até 22.
+  for (let i = 0; i < 24; i++) { // (18.5 - 7) * 2 = 11.5 * 2 = 23 slots
+    const totalMinutes = (7 * 60) + (i * 30);
+    if (totalMinutes > (18 * 60 + 30)) break; // Não passar de 18:30
+
+    const hours = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
+    const minutes = String(totalMinutes % 60).padStart(2, '0');
+    horarios.push(`${hours}:${minutes}`);
+  }
+  return horarios;
+})();
+
+// Componente do Calendario
   const CalendarioAgendamentos = () => {
-  const [agendamentos, setAgendamentos] = useState([]);
-  const [mesAtual, setMesAtual] = useState(new Date());
-  const [loading, setLoading] = useState(true);
-  const navigate = useNavigate(); // Hook para navegação
+  const [calendarAppointments, setCalendarAppointments] = useState([]);
+  const [diaReferencia, setDiaReferencia] = useState(new Date()); // Renomeado de mesAtual para clareza com a lógica semanal
+  const [calendarLoading, setCalendarLoading] = useState(true);
+  const navigate = useNavigate(); 
 
+  const agendamentosPorDiaEHora = useMemo(() => {
+    const grouped = {};
+    if (!calendarAppointments || calendarAppointments.length === 0) {
+      return grouped;
+    }
+    calendarAppointments.forEach(app => {
+      const dateStr = app.appointment_date; 
+      const timeStr = app.appointment_time.substring(0, 5);
+
+      if (!grouped[dateStr]) {
+        grouped[dateStr] = {};
+      }
+      if (!grouped[dateStr][timeStr]) {
+        grouped[dateStr][timeStr] = [];
+      }
+      grouped[dateStr][timeStr].push(app);
+      grouped[dateStr][timeStr].sort((a, b) => a.id - b.id); // Ordena por ID se houver múltiplos no mesmo slot
+    });
+    return grouped;
+  }, [calendarAppointments]);
+
+  const calcularHorarioTermino = (horaInicioString, duracaoEmMinutos) => {
+    if (!horaInicioString || typeof duracaoEmMinutos !== 'number' || duracaoEmMinutos < 0) {
+      return ''; // Retorna string vazia se os dados forem inválidos
+    }
+    const [horas, minutos] = horaInicioString.split(':').map(Number);
+    const totalMinutosInicio = horas * 60 + minutos;
+    const totalMinutosTermino = totalMinutosInicio + duracaoEmMinutos;
+
+    const horasTermino = Math.floor(totalMinutosTermino / 60) % 24; // Considera virada do dia, embora incomum para agendamentos
+    const minutosTermino = totalMinutosTermino % 60;
+
+    return `${String(horasTermino).padStart(2, '0')}:${String(minutosTermino).padStart(2, '0')}`;
+  };
+
+  const proximaSemana = () => {
+    setDiaReferencia(prevDate => {
+      const newDate = new Date(prevDate);
+      newDate.setDate(prevDate.getDate() + 7);
+      return newDate;
+    });
+  };
+
+  const semanaAnterior = () => {
+    setDiaReferencia(prevDate => {
+      const newDate = new Date(prevDate);
+      newDate.setDate(prevDate.getDate() - 7);
+      return newDate;
+    });
+  };
+
+  // useEffect para buscar agendamentos quando diaReferencia (semana) muda
   useEffect(() => {
-    carregarAgendamentos();
-  }, [mesAtual]);
+    fetchCalendarAppointments();
+  }, [diaReferencia]);
 
-  const carregarAgendamentos = async () => {
+  const fetchCalendarAppointments = async () => {
     try {
-      setLoading(true);
+      setCalendarLoading(true);
       // Simular carregamento de agendamentos
       const response = await fetch(`${API_URL}/api/appointments`);
       const data = await response.json();
-      setAgendamentos(data || []);
+      setCalendarAppointments(data || []);
     } catch (error) {
       console.error('Erro ao carregar agendamentos:', error);
-      setAgendamentos([]);
+      setCalendarAppointments([]);
     } finally {
-      setLoading(false);
+      setCalendarLoading(false);
     }
   };
 
@@ -359,183 +451,175 @@ const Agendamento = () => {
         });
 
         if (response.ok) {
-          alert('Agendamento excluído com sucesso!');
-          carregarAgendamentos(); // Recarregar a lista
+          alert('Agendamento excluido com sucesso!');
+          fetchCalendarAppointments(); // Recarregar a lista
         } else {
           alert('Erro ao excluir agendamento');
         }
       } catch (error) {
-        alert('Erro de conexão com o servidor');
+        alert('Erro de conexao com o servidor');
         console.error('Erro:', error);
       }
     }
   };
+  
+  // Funções getDiasDoMes, proximoMes, mesAnterior, formatarMes e getAgendamentosParaDiaEspecifico foram removidas 
+  // pois a lógica de exibição agora é por semana e os agendamentos são acessados via agendamentosPorDiaEHora.
 
-  const getDiasDoMes = () => {
-    const ano = mesAtual.getFullYear();
-    const mes = mesAtual.getMonth();
-    const primeiroDia = new Date(ano, mes, 1);
-    const ultimoDia = new Date(ano, mes + 1, 0);
-    const diasDoMes = [];
+  const diasDaSemanaNomes = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
+  const semanaAtualVisivel = getDiasDaSemana(getInicioDaSemana(diaReferencia));
 
-    // Adicionar dias vazios do início
-    for (let i = 0; i < primeiroDia.getDay(); i++) {
-      diasDoMes.push(null);
+  const formatarTituloSemana = (semana) => {
+    const inicio = semana[0];
+    const fim = semana[6];
+    const options = { month: 'short', day: 'numeric' };
+    const inicioStr = inicio.toLocaleDateString('pt-BR', options);
+    const fimStr = fim.toLocaleDateString('pt-BR', options);
+    if (inicio.getFullYear() !== fim.getFullYear()) {
+      return `${inicioStr}, ${inicio.getFullYear()} - ${fimStr}, ${fim.getFullYear()}`;
+    } else if (inicio.getMonth() !== fim.getMonth()) {
+      return `${inicioStr} - ${fimStr}, ${fim.getFullYear()}`;
+    } else {
+      return `${inicio.toLocaleDateString('pt-BR', {day: 'numeric'})} - ${fimStr}, ${fim.getFullYear()}`;
     }
-
-    // Adicionar todos os dias do mês
-    for (let dia = 1; dia <= ultimoDia.getDate(); dia++) {
-      diasDoMes.push(new Date(ano, mes, dia));
-    }
-
-    return diasDoMes;
   };
 
-  const getAgendamentosDoDia = (data) => {
-    if (!data) return [];
-    const dataStr = data.toISOString().split('T')[0];
-    return agendamentos.filter(ag => ag.appointment_date === dataStr);
-  };
-
-  const proximoMes = () => {
-    setMesAtual(new Date(mesAtual.getFullYear(), mesAtual.getMonth() + 1, 1));
-  };
-
-  const mesAnterior = () => {
-    setMesAtual(new Date(mesAtual.getFullYear(), mesAtual.getMonth() - 1, 1));
-  };
-
-  const formatarMes = (data) => {
-    return data.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-  };
-
-  const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
   return (
-    <Card className="shadow-lg">
+    <Card className="shadow-lg w-full flex flex-col">
       <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
         <div className="flex justify-between items-center">
-          <CardTitle className="flex items-center space-x-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={semanaAnterior}
+            className="text-white hover:bg-white/20"
+          >
+            &larr; Anterior
+          </Button>
+          <CardTitle className="flex items-center space-x-2 text-lg">
             <Calendar className="h-5 w-5" />
-            <span>Calendário de Agendamentos</span>
+            {/* O título dinâmico da semana foi removido conforme solicitado */}
+            {/* Pode-se adicionar um título estático como "Agenda Semanal" se desejado */}
           </CardTitle>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={mesAnterior}
-              className="text-white hover:bg-white/20"
-            >
-              ←
-            </Button>
-            <span className="font-medium capitalize min-w-[200px] text-center">
-              {formatarMes(mesAtual)}
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={proximoMes}
-              className="text-white hover:bg-white/20"
-            >
-              →
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={proximaSemana}
+            className="text-white hover:bg-white/20"
+          >
+            Próxima &rarr;
+          </Button>
         </div>
       </CardHeader>
-      <CardContent className="p-0">
-        {loading ? (
-          <div className="p-8 text-center text-gray-500">
+      {/* CardContent agora será flex-col para gerenciar o cabeçalho e o corpo da grade */}
+      <CardContent className="p-0 flex flex-col flex-1"> 
+        {/* Linha do Cabeçalho dos Dias (com placeholder para régua) */}
+        <div className="flex sticky top-0 bg-gray-50 z-10 border-b"> {/* Container do cabeçalho inteiro */}
+          <div className="w-16 flex-shrink-0 border-r border-gray-300 bg-gray-50"></div> {/* Célula vazia acima da régua, com mesma cor de fundo e borda */}
+          <div className="flex-1 grid grid-cols-7"> 
+            {semanaAtualVisivel.map((dia, index) => (
+              <div key={index} className="p-2 text-center border-r h-10 flex items-center justify-center"> {/* Mantém h-10 para altura do cabeçalho do dia */}
+                <span className="text-lg font-medium">{dia.getDate()}</span>
+                <span className="text-xs text-gray-600 ml-1">- {diasDaSemanaNomes[dia.getDay()]}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {calendarLoading ? (
+          <div className="p-8 text-center text-gray-500 flex-1"> {/* flex-1 para ocupar espaço se carregando */}
             Carregando agendamentos...
           </div>
         ) : (
-          <div className="grid grid-cols-7 gap-0">
-            {/* Cabeçalho dos dias da semana */}
-            {diasSemana.map((dia) => (
-              <div
-                key={dia}
-                className="p-3 text-center font-medium text-gray-700 bg-gray-50 border-b"
-              >
-                {dia}
-              </div>
-            ))}
-            
-            {/* Dias do mês */}
-            {getDiasDoMes().map((data, index) => {
-              const agendamentosDoDia = getAgendamentosDoDia(data);
-              const isHoje = data && data.toDateString() === new Date().toDateString();
-              const temAgendamento = agendamentosDoDia.length > 0;
-              
-              return (
-                <div
-                  key={index}
-                  className={`min-h-[100px] p-2 border-b border-r border-gray-200 ${
-                    data ? 'bg-white hover:bg-gray-50' : 'bg-gray-100'
-                  } ${isHoje ? 'bg-blue-50 border-blue-200' : ''}`}
-                >
-                  {data && (
-                    <>
-                      <div className={`text-sm font-medium mb-1 ${
-                        isHoje ? 'text-blue-600' : 'text-gray-700'
-                      }`}>
-                        {data.getDate()}
-                        {isHoje && (
-                          <span className="ml-1 text-xs bg-blue-600 text-white px-1 rounded">
-                            Hoje
-                          </span>
-                        )}
-                      </div>
-                      
-                      {/* Agendamentos do dia */}
-                      <div className="space-y-1">
-                        {agendamentosDoDia.map((agendamento, idx) => (
-                          <div
-                            key={idx}
-                            className={`text-xs p-1 rounded border-l-2 group relative cursor-pointer ${
-                              agendamento.patient_is_fully_registered === false
-                                ? 'bg-red-100 text-red-800 border-red-400 hover:bg-red-200'
-                                : 'bg-purple-100 text-purple-800 border-purple-400 hover:bg-purple-200'
-                            }`}
-                            onClick={() => {
-                              if (agendamento.patient_is_fully_registered === false) {
-                                navigate(`/pacientes/editar/${agendamento.patient_id}`);
-                              }
-                            }}
-                          >
-                            <div className="flex justify-between items-start">
-                              <div className="flex-1 min-w-0">
-                                <div className="font-medium truncate">
-                                  {agendamento.patient_name}
-                                </div>
-                                <div className="text-purple-600">
-                                  {agendamento.appointment_time?.substring(0, 5)}
-                                </div>
-                                {agendamento.observacao && (
-                                  <div className="text-xs text-gray-500 mt-0.5 truncate" title={agendamento.observacao}>
-                                    {agendamento.observacao}
-                                  </div>
-                                )}
-                              </div>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  excluirAgendamento(agendamento.id);
-                                }}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 p-1 hover:bg-red-200 rounded"
-                                title="Excluir agendamento"
-                              >
-                                <Trash2 className="h-3 w-3 text-red-600" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                        
-                        {/* Removida a lógica de "+X mais" */}
-                      </div>
-                    </>
-                  )}
+          // Área principal do calendário (régua de tempo + colunas dos dias)
+          <div className="flex flex-1 overflow-y-auto overflow-x-hidden"> {/* Alterado para overflow-y-auto overflow-x-hidden */}
+            {/* Régua de Tempo */}
+            <div className="w-16 sticky left-0 bg-gray-50 z-20 border-r border-gray-300 flex-shrink-0">
+              {HORARIOS_DO_DIA.map(horario => (
+                <div key={horario} className="h-8 flex items-center justify-start px-2 text-xs text-gray-600 border-b border-gray-200">
+                  {horario}
                 </div>
-              );
-            })}
+              ))}
+            </div>
+
+            {/* Container para as colunas dos dias */}
+            <div className="flex-1 grid grid-cols-7"> {/* flex-1 para ocupar o espaço restante */}
+              {semanaAtualVisivel.map((dia, indexDia) => (
+                <div key={indexDia} className="border-r border-gray-300 flex flex-col"> {/* Removido min-w-[180px] */}
+                  {HORARIOS_DO_DIA.map(horario => (
+                    <div 
+                      key={`${dia.toISOString()}-${horario}`} 
+                      className="h-8 border-b border-gray-200 relative" // Altura do slot: h-8 (32px)
+                    >
+                      {agendamentosPorDiaEHora[dia.toISOString().split('T')[0]] && agendamentosPorDiaEHora[dia.toISOString().split('T')[0]][horario] &&
+                        agendamentosPorDiaEHora[dia.toISOString().split('T')[0]][horario].map((agendamento, idxAg) => (
+                          idxAg === 0 && ( // Renderiza apenas o primeiro agendamento no slot
+                            <div
+                              key={agendamento.id}
+                              className={`absolute inset-x-0 mx-0.5 p-0.5 rounded border group cursor-pointer text-xs flex items-center space-x-1.5 overflow-hidden bg-white hover:bg-gray-50 ${
+                                agendamento.patient_is_fully_registered === false
+                                  ? 'border-red-400' 
+                                  : 'border-blue-400' 
+                              }`}
+                              style={{ 
+                                /* top: '1px', // Removido top para melhor alinhamento com o slot */
+                                height: `calc(${agendamento.duration_minutes / 30 * 2}rem - 1px)`, // 2rem = h-8 (32px), -1px para borda do slot
+                                zIndex: 10 
+                              }}
+                              onClick={() => { 
+                                if (agendamento.patient_is_fully_registered === false) {
+                                  navigate(`/cadastro/${agendamento.patient_id}`); 
+                                } else {
+                                  navigate(`/visualizar/${agendamento.patient_id}`);
+                                }
+                              }}
+                            >
+                              {/* Conteúdo interno do bloco de agendamento: Ponto e Nome */}
+                              <div className="flex items-center h-full space-x-1 w-full overflow-hidden"> {/* p-0.5 removido daqui, já está no pai */}
+                                <span className={`w-2 h-2 rounded-full ${ // Ponto colorido w-2 h-2
+                                  agendamento.patient_is_fully_registered === false ? 'bg-red-600' : 'bg-blue-600' // Cores mais fortes para o ponto
+                                } flex-shrink-0`}></span>
+                                <span className="font-medium truncate flex-1 text-sm text-gray-700"> 
+                                  {agendamento.patient_name}
+                                </span>
+                                {/* Botões de Ação (Editar/Excluir) - Reintroduzidos */}
+                                <div className="absolute top-0.5 right-0.5 flex flex-col space-y-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-20"> {/* Adicionado z-20 */}
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-4 w-4 p-0 hover:bg-blue-100 rounded-sm"
+                                    title="Editar agendamento"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate(`/agendamentos/editar/${agendamento.id}`);
+                                    }}
+                                  >
+                                    <Edit className="h-2.5 w-2.5 text-blue-700" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-4 w-4 p-0 hover:bg-red-100 rounded-sm"
+                                    title="Excluir agendamento"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      excluirAgendamento(agendamento.id);
+                                    }}
+                                  >
+                                    <Trash2 className="h-2.5 w-2.5 text-red-700" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        ))
+                      }
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </CardContent>
@@ -544,5 +628,3 @@ const Agendamento = () => {
 };
 
 export default Agendamento;
-
-
