@@ -478,11 +478,6 @@ def get_appointments_tomorrow():
     appointments = Appointment.query.filter_by(appointment_date=tomorrow).all()
     return jsonify([appointment.to_dict() for appointment in appointments])
 
-@app.route("/api/appointments/<int:appointment_id>", methods=["GET"])
-def get_appointment_by_id(appointment_id):
-    appointment = Appointment.query.get_or_404(appointment_id)
-    return jsonify(appointment.to_dict())
-
 @app.route("/api/appointments/<int:appointment_id>", methods=["DELETE"])
 def delete_appointment(appointment_id):
     try:
@@ -493,65 +488,6 @@ def delete_appointment(appointment_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"success": False, "message": f"Erro ao excluir agendamento: {str(e)}"}), 500
-
-@app.route("/api/appointments/<int:appointment_id>", methods=["PUT"])
-def update_appointment_route(appointment_id): # Renomeado para evitar conflito com model Appointment
-    appointment = Appointment.query.get_or_404(appointment_id)
-    data = request.get_json()
-
-    # Extrair e validar dados - similar à rota de criação
-    new_date_str = data.get("appointment_date", appointment.appointment_date.isoformat())
-    new_time_str = data.get("appointment_time", appointment.appointment_time)
-    new_duration_minutes = int(data.get("duration_minutes", appointment.duration_minutes))
-    new_observacao = data.get("observacao", appointment.observacao)
-    new_patient_id = data.get("patient_id", appointment.patient_id) # Permitir mudança de paciente
-
-    try:
-        new_appointment_date_obj = datetime.strptime(new_date_str, "%Y-%m-%d").date()
-        new_appointment_time_obj = datetime.strptime(new_time_str, "%H:%M").time()
-    except ValueError:
-        return jsonify({"success": False, "message": "Formato de data ou hora inválido."}), 400
-
-    # Verificar se o novo paciente existe (se mudou)
-    if new_patient_id != appointment.patient_id:
-        new_patient = Patient.query.get(new_patient_id)
-        if not new_patient:
-            return jsonify({"success": False, "message": f"Novo paciente com ID {new_patient_id} não encontrado."}), 404
-    
-    # Lógica de Verificação de Conflito (excluindo o próprio agendamento)
-    new_start_dt = datetime.combine(new_appointment_date_obj, new_appointment_time_obj)
-    new_end_dt = new_start_dt + timedelta(minutes=new_duration_minutes)
-
-    existing_appointments_on_date = Appointment.query.filter(
-        Appointment.appointment_date == new_appointment_date_obj,
-        Appointment.id != appointment_id # Exclui o próprio agendamento da verificação
-    ).all()
-
-    for existing_app in existing_appointments_on_date:
-        existing_app_time_obj = datetime.strptime(existing_app.appointment_time, "%H:%M").time()
-        existing_start_datetime = datetime.combine(existing_app.appointment_date, existing_app_time_obj)
-        existing_end_datetime = existing_start_datetime + timedelta(minutes=existing_app.duration_minutes)
-
-        if max(new_start_dt, existing_start_datetime) < min(new_end_dt, existing_end_datetime):
-            return jsonify({
-                "success": False, 
-                "message": f"Horário em conflito com outro agendamento existente ({existing_app.patient.nome if existing_app.patient else 'Desconhecido'}) das {existing_app.appointment_time} (duração: {existing_app.duration_minutes} min)."
-            }), 409
-
-    # Atualizar os campos do agendamento
-    appointment.patient_id = new_patient_id
-    appointment.appointment_date = new_appointment_date_obj
-    appointment.appointment_time = new_time_str
-    appointment.duration_minutes = new_duration_minutes
-    appointment.observacao = new_observacao
-    # appointment.updated_at = datetime.utcnow() # Se você tiver um campo updated_at
-
-    try:
-        db.session.commit()
-        return jsonify({"success": True, "message": "Agendamento atualizado com sucesso", "appointment": appointment.to_dict()})
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"success": False, "message": f"Erro ao atualizar agendamento: {str(e)}"}), 500
 
 @app.route("/api/budgets", methods=["POST", "OPTIONS"])
 def create_budget():

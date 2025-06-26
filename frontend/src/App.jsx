@@ -1,34 +1,33 @@
-import { useState, useEffect } from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import Login from './components/Login'
-import Dashboard from './components/Dashboard'
-import CadastroDentista from './components/CadastroDentista'
-import ConsultaDentistas from './components/ConsultaDentistas'
-import VisualizarPaciente from './components/VisualizarPaciente'
-import HistoricoPaciente from './components/HistoricoPaciente'
-import Orcamento from './components/Orcamento'
-import Agendamento from './components/Agendamento'
-import './App.css'
+import { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import Login from './components/Login';
+import Dashboard from './components/Dashboard';
+import CadastroDentista from './components/CadastroDentista';
+import ConsultaDentistas from './components/ConsultaDentistas';
+import VisualizarPaciente from './components/VisualizarPaciente';
+import HistoricoPaciente from './components/HistoricoPaciente';
+import Orcamento from './components/Orcamento';
+import Agendamento from './components/Agendamento';
+import EditarAgendamento from './components/EditarAgendamento'; // Correto!
+import './App.css';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    // Verificar se há uma sessão salva no localStorage
-    return localStorage.getItem('isAuthenticated') === 'true'
-  })
+    return localStorage.getItem('isAuthenticated') === 'true';
+  });
 
   useEffect(() => {
-    // Salvar estado de autenticação no localStorage
-    localStorage.setItem('isAuthenticated', isAuthenticated.toString())
-  }, [isAuthenticated])
+    localStorage.setItem('isAuthenticated', isAuthenticated.toString());
+  }, [isAuthenticated]);
 
   const handleLogin = () => {
-    setIsAuthenticated(true)
-  }
+    setIsAuthenticated(true);
+  };
 
   const handleLogout = () => {
-    setIsAuthenticated(false)
-    localStorage.removeItem('isAuthenticated')
-  }
+    setIsAuthenticated(false);
+    localStorage.removeItem('isAuthenticated');
+  };
 
   return (
     <Router>
@@ -36,82 +35,49 @@ function App() {
         <Routes>
           <Route 
             path="/login" 
-            element={
-              isAuthenticated ? 
-              <Navigate to="/dashboard" replace /> : 
-              <Login onLogin={handleLogin} />
-            } 
+            element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login onLogin={handleLogin} />}
           />
           <Route 
             path="/dashboard" 
-            element={
-              isAuthenticated ? 
-              <Dashboard onLogout={handleLogout} /> : 
-              <Navigate to="/login" replace />
-            } 
+            element={isAuthenticated ? <Dashboard onLogout={handleLogout} /> : <Navigate to="/login" replace />}
           />
           <Route 
             path="/cadastro" 
-            element={
-              isAuthenticated ? 
-              <CadastroDentista /> : 
-              <Navigate to="/login" replace />
-            } 
+            element={isAuthenticated ? <CadastroDentista /> : <Navigate to="/login" replace />}
           />
           <Route 
             path="/cadastro/:id" 
-            element={
-              isAuthenticated ? 
-              <CadastroDentista /> : 
-              <Navigate to="/login" replace />
-            } 
+            element={isAuthenticated ? <CadastroDentista /> : <Navigate to="/login" replace />}
           />
           <Route 
             path="/visualizar/:id" 
-            element={
-              isAuthenticated ? 
-              <VisualizarPaciente /> : 
-              <Navigate to="/login" replace />
-            } 
+            element={isAuthenticated ? <VisualizarPaciente /> : <Navigate to="/login" replace />}
           />
           <Route 
             path="/consulta" 
-            element={
-              isAuthenticated ? 
-              <ConsultaDentistas /> : 
-              <Navigate to="/login" replace />
-            } 
+            element={isAuthenticated ? <ConsultaDentistas /> : <Navigate to="/login" replace />}
           />
           <Route 
             path="/orcamento" 
-            element={
-              isAuthenticated ? 
-              <Orcamento /> : 
-              <Navigate to="/login" replace />
-            } 
+            element={isAuthenticated ? <Orcamento /> : <Navigate to="/login" replace />}
           />
           <Route 
             path="/agendamento" 
-            element={
-              isAuthenticated ? 
-              <Agendamento /> : 
-              <Navigate to="/login" replace />
-            } 
+            element={isAuthenticated ? <Agendamento /> : <Navigate to="/login" replace />}
+          />
+          <Route 
+            path="/agendamentos/editar/:idAgendamento" // Correto!
+            element={isAuthenticated ? <EditarAgendamento /> : <Navigate to="/login" replace />}
           />
           <Route 
             path="/historico" 
-            element={
-              isAuthenticated ? 
-              <HistoricoPaciente /> : 
-              <Navigate to="/login" replace />
-            } 
+            element={isAuthenticated ? <HistoricoPaciente /> : <Navigate to="/login" replace />}
           />
           <Route path="/" element={<Navigate to="/login" replace />} />
         </Routes>
       </div>
     </Router>
-  )
+  );
 }
 
-export default App
-
+export default App;

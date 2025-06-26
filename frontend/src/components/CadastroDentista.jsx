@@ -131,7 +131,15 @@ const CadastroDentista = () => {
         setMessage(isEditing ? 'Paciente atualizado com sucesso!' : 'Paciente cadastrado com sucesso!')
         setMessageType('success')
         
-        if (!isEditing) {
+        if (isEditing) {
+          // Se estiver editando, após o sucesso, podemos redirecionar para a consulta
+          // ou dar um tempo para o usuário ler a mensagem e então redirecionar.
+          // Por agora, vamos apenas exibir a mensagem. O usuário navegará manualmente.
+          // Considerar adicionar um botão "Voltar para Consulta" ou redirecionamento automático.
+          // Para forçar a atualização na tela de consulta, uma abordagem seria
+          // invalidar um cache ou usar um estado global, mas a forma mais simples
+          // ao voltar é que a consulta recarregue os dados.
+        } else {
           // Reset form only for new registrations
           setFormData({
             nome: '', sobrenome: '', data_nascimento: '', sexo: '', cpf: '', rg: '',
