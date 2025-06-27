@@ -10,6 +10,8 @@ import Orcamento from './components/Orcamento';
 import Agendamento from './components/Agendamento';
 import EditarAgendamento from './components/EditarAgendamento'; // Correto!
 import Relatorios from './components/Relatorios'; // Adicionar importação
+import AdminButton from './components/AdminButton'; // Importar AdminButton
+import AdminPanel from './components/AdminPanel'; // Importar AdminPanel
 import './App.css';
 
 function App() {
@@ -78,8 +80,13 @@ function App() {
             path="/relatorios"
             element={isAuthenticated ? <Relatorios /> : <Navigate to="/login" replace />}
           />
+          <Route
+            path="/admin"
+            element={isAuthenticated ? <AdminPanel /> : <Navigate to="/login" replace />}
+          />
           <Route path="/" element={<Navigate to="/login" replace />} />
         </Routes>
+        {isAuthenticated && <AdminButton />} {/* Renderiza o botão se autenticado */}
       </div>
     </Router>
   );
