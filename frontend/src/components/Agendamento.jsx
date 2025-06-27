@@ -293,7 +293,7 @@ const Agendamento = () => {
         </div>
         
         {/* Calendario de Agendamentos ocupará toda a largura */}
-        <div className="lg:col-span-3"> {/* Alterado para ocupar toda a largura */}
+        <div> {/* Removed lg:col-span-3 as main is not a grid container and this div will take full width by default */}
           <CalendarioAgendamentos onSlotClick={abrirModalAgendamento} />
         </div>
       </main>
