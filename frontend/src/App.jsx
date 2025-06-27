@@ -12,6 +12,9 @@ import EditarAgendamento from './components/EditarAgendamento'; // Correto!
 import Relatorios from './components/Relatorios'; // Adicionar importação
 import AdminButton from './components/AdminButton'; // Importar AdminButton
 import AdminPanel from './components/AdminPanel'; // Importar AdminPanel
+import GerenciarDentistas from './components/admin/GerenciarDentistas'; // Importar GerenciarDentistas
+import AlterarSenhaAdmin from './components/admin/AlterarSenhaAdmin'; // Importar AlterarSenhaAdmin
+import TabelaPrecosAdmin from './components/admin/TabelaPrecosAdmin'; // Importar TabelaPrecosAdmin
 import './App.css';
 
 function App() {
@@ -83,6 +86,18 @@ function App() {
           <Route
             path="/admin"
             element={isAuthenticated ? <AdminPanel /> : <Navigate to="/login" replace />}
+          />
+          <Route
+            path="/admin/dentistas"
+            element={isAuthenticated ? <GerenciarDentistas /> : <Navigate to="/login" replace />}
+          />
+          <Route
+            path="/admin/alterar-senha"
+            element={isAuthenticated ? <AlterarSenhaAdmin /> : <Navigate to="/login" replace />}
+          />
+          <Route
+            path="/admin/tabela-precos"
+            element={isAuthenticated ? <TabelaPrecosAdmin /> : <Navigate to="/login" replace />}
           />
           <Route path="/" element={<Navigate to="/login" replace />} />
         </Routes>
