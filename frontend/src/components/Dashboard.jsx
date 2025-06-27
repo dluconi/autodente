@@ -88,14 +88,15 @@ const Dashboard = ({ onLogout }) => {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-800 mb-2">Painel de Controle</h2>
-          <p className="text-gray-600">Gerencie o cadastro de pacientes de forma eficiente</p>
+          <h2 className="text-3xl font-bold text-gray-800 mb-2">Gestão Odontológica</h2>
+          <p className="text-gray-600">Cadastre, organize e acompanhe seus pacientes com eficiência em um painel pensado para dentistas.</p>
         </div>
 
-        {/* Módulos do Sistema - Ajustado para grid-cols-3 */}
+        {/* Módulos do Sistema - Todos os cards com altura uniforme e flexível */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          <Link to="/cadastro">
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-green-500">
+          {/* Novo Cadastro */}
+          <Link to="/cadastro" className="flex">
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-green-500 w-full flex flex-col">
               <CardHeader className="pb-3">
                 <div className="flex items-center space-x-3">
                   <div className="bg-green-100 p-2 rounded-full">
@@ -107,16 +108,17 @@ const Dashboard = ({ onLogout }) => {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex-grow">
                 <p className="text-sm text-gray-600">
-                  Adicione um novo paciente ao sistema com todos os dados necessários
+                  Adicione um novo paciente ao sistema com todos os dados necessários.
                 </p>
               </CardContent>
             </Card>
           </Link>
 
-          <Link to="/consulta">
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-blue-500">
+          {/* Consultar Pacientes */}
+          <Link to="/consulta" className="flex">
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-blue-500 w-full flex flex-col">
               <CardHeader className="pb-3">
                 <div className="flex items-center space-x-3">
                   <div className="bg-blue-100 p-2 rounded-full">
@@ -128,16 +130,17 @@ const Dashboard = ({ onLogout }) => {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex-grow">
                 <p className="text-sm text-gray-600">
-                  Consulte, edite e gerencie os dados dos pacientes cadastrados
+                  Consulte, edite e gerencie os dados dos pacientes cadastrados.
                 </p>
               </CardContent>
             </Card>
           </Link>
 
-          <Link to="/historico">
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-teal-500">
+          {/* Histórico de Pacientes */}
+          <Link to="/historico" className="flex">
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-teal-500 w-full flex flex-col">
               <CardHeader className="pb-3">
                 <div className="flex items-center space-x-3">
                   <div className="bg-teal-100 p-2 rounded-full">
@@ -149,16 +152,17 @@ const Dashboard = ({ onLogout }) => {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex-grow">
                 <p className="text-sm text-gray-600">
-                  Cadastre informações clínicas e anexe arquivos do histórico
+                  Cadastre informações clínicas e anexe arquivos do histórico.
                 </p>
               </CardContent>
             </Card>
           </Link>
 
-          <Link to="/orcamento">
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-orange-500">
+          {/* Orçamento */}
+          <Link to="/orcamento" className="flex">
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-orange-500 w-full flex flex-col">
               <CardHeader className="pb-3">
                 <div className="flex items-center space-x-3">
                   <div className="bg-orange-100 p-2 rounded-full">
@@ -170,43 +174,17 @@ const Dashboard = ({ onLogout }) => {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex-grow">
                 <p className="text-sm text-gray-600">
-                  Crie orçamentos detalhados com procedimentos e formas de pagamento
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
-        </div>
-
-        {/* Segunda Linha de Módulos - Apenas Relatórios agora, centralizado */}
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-6 mb-8 justify-items-center">
-          {/* Espaçador para centralizar o card de Relatórios em telas médias e grandes */}
-          <div className="hidden md:block lg:block"></div>
-          <Link to="/relatorios" className="w-full md:w-auto"> {/* Garante que o Link ocupe a largura da coluna */}
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-yellow-500 h-full"> {/* h-full para igualar altura se houver outros cards */}
-              <CardHeader className="pb-3">
-                <div className="flex items-center space-x-3">
-                  <div className="bg-yellow-100 p-2 rounded-full">
-                    <BarChart className="h-6 w-6 text-yellow-600" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg text-gray-800">Relatórios</CardTitle>
-                    <CardDescription>Visualizar e gerar relatórios</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-gray-600">
-                  Acesse e gere relatórios detalhados do sistema
+                  Crie orçamentos detalhados com procedimentos e formas de pagamento.
                 </p>
               </CardContent>
             </Card>
           </Link>
 
-          {/* Card de Agendamento movido para a primeira linha */}
-          <Link to="/agendamento">
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-purple-500">
+          {/* Agendamento */}
+          <Link to="/agendamento" className="flex">
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-purple-500 w-full flex flex-col">
               <CardHeader className="pb-3">
                 <div className="flex items-center space-x-3">
                   <div className="bg-purple-100 p-2 rounded-full">
@@ -218,9 +196,31 @@ const Dashboard = ({ onLogout }) => {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex-grow">
                 <p className="text-sm text-gray-600">
-                  Agende consultas para pacientes existentes ou faça pré-cadastro
+                  Agende consultas para pacientes existentes ou faça pré-cadastro.
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          {/* Relatórios */}
+          <Link to="/relatorios" className="flex">
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-yellow-500 w-full flex flex-col">
+              <CardHeader className="pb-3">
+                <div className="flex items-center space-x-3">
+                  <div className="bg-yellow-100 p-2 rounded-full">
+                    <BarChart className="h-6 w-6 text-yellow-600" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg text-gray-800">Relatórios</CardTitle>
+                    <CardDescription>Visualizar e gerar relatórios</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="flex-grow">
+                <p className="text-sm text-gray-600">
+                  Acesse e gere relatórios detalhados do sistema.
                 </p>
               </CardContent>
             </Card>
