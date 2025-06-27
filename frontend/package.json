@@ -60,11 +60,7 @@
     "tailwind-merge": "^3.3.0",
     "tailwindcss": "^4.1.7",
     "vaul": "^1.1.2",
-    "zod": "^3.24.4",
-    "@fullcalendar/core": "^6.1.11",
-    "@fullcalendar/react": "^6.1.11",
-    "@fullcalendar/interaction": "^6.1.11",
-    "@fullcalendar/timegrid": "^6.1.11"
+    "zod": "^3.24.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",
