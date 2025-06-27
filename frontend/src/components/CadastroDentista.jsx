@@ -102,11 +102,14 @@ const CadastroDentista = () => {
   }
 
   const handleInputChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }))
-  }
+    setFormData(prev => {
+      const newState = { ...prev, [field]: value };
+      if (field === 'nao_possui_email' && value === true) {
+        newState.email = ''; // Limpa o email quando "Não possui email" é marcado
+      }
+      return newState;
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -153,8 +156,14 @@ const CadastroDentista = () => {
           })
         }
       } else {
-        setMessage(data.message || (isEditing ? 'Erro ao atualizar paciente' : 'Erro ao cadastrar paciente'))
-        setMessageType('error')
+        // Modificar para lidar com um objeto de 'errors'
+        if (data.errors) {
+          const errorMessages = Object.values(data.errors).join('\n'); // \n para console, <br/> para HTML
+          setMessage(errorMessages || (isEditing ? 'Erro ao atualizar paciente' : 'Erro ao cadastrar paciente'));
+        } else {
+          setMessage(data.message || (isEditing ? 'Erro ao atualizar paciente' : 'Erro ao cadastrar paciente'));
+        }
+        setMessageType('error');
       }
     } catch (err) {
       setMessage('Erro de conexão com o servidor')
