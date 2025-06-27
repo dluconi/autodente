@@ -17,27 +17,57 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea"; // Adicionado Textarea
 
 const Relatorios = () => {
-  const [pacientes, setPacientes] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [pacientes, setPacientes] = useState([]); // Este estado já armazena os pacientes buscados
+  const [loading, setLoading] = useState(false); // Loading para a lista de pacientes da página
   const [isAtestadoModalOpen, setIsAtestadoModalOpen] = useState(false);
+  const [atestadoGeradoTexto, setAtestadoGeradoTexto] = useState('');
+  const [mostrarVisualizacaoAtestado, setMostrarVisualizacaoAtestado] = useState(false);
 
-  // Estados para os campos do formulário de Atestado
-  const [atestadoForm, setAtestadoForm] = useState({
+  const initialAtestadoFormState = {
     hora: '',
-    dentista: '',
+    dentista: '', // Manterá o ID do dentista selecionado
     afinsConsulta: '',
     periodo: '',
     tempoRepouso: '',
     unidadeTempoRepouso: 'dias', // 'dias' ou 'horas'
-  });
-
-  const handleAtestadoFormChange = (field, value) => {
-    setAtestadoForm(prev => ({ ...prev, [field]: value }));
+    pacienteId: '',
+    pacienteNome: '', // Para exibição e uso no texto do atestado
+    pacienteRG: '',
+    cid: '',
+    observacoes: '',
   };
 
-  // Mock de dentistas e horários
+  // Estados para os campos do formulário de Atestado
+  const [atestadoForm, setAtestadoForm] = useState(initialAtestadoFormState);
+
+  const handleAtestadoFormChange = (field, value) => {
+    if (field === 'pacienteId') {
+      const pacienteSelecionado = pacientes.find(p => p.id.toString() === value);
+      if (pacienteSelecionado) {
+        setAtestadoForm(prev => ({
+          ...prev,
+          [field]: value,
+          pacienteNome: `${pacienteSelecionado.nome || ''} ${pacienteSelecionado.sobrenome || ''}`.trim(),
+          pacienteRG: pacienteSelecionado.rg || '', // Assumindo que o paciente tem um campo 'rg'
+        }));
+      } else {
+        // Paciente não encontrado ou valor de placeholder selecionado
+        setAtestadoForm(prev => ({
+          ...prev,
+          [field]: value,
+          pacienteNome: '',
+          pacienteRG: '',
+        }));
+      }
+    } else {
+      setAtestadoForm(prev => ({ ...prev, [field]: value }));
+    }
+  };
+
+  // Mock de dentistas e horários (dentistas será substituído ou virá do usuário logado)
   const dentistasMock = [
     { id: '1', nome: 'Dr. Carlos Alberto' },
     { id: '2', nome: 'Dra. Ana Beatriz' },
@@ -118,17 +148,64 @@ const Relatorios = () => {
   };
 
   const handleAtestadoOk = () => {
-    console.log("Dados do atestado:", atestadoForm);
-    // Resetar o formulário após o envio (opcional, mas boa prática)
-    setAtestadoForm({
-        hora: '',
-        dentista: '',
-        afinsConsulta: '',
-        periodo: '',
-        tempoRepouso: '',
-        unidadeTempoRepouso: 'dias',
-    });
+    const {
+      afinsConsulta,
+      pacienteNome,
+      pacienteRG,
+      periodo,
+      hora,
+      tempoRepouso,
+      unidadeTempoRepouso,
+      observacoes,
+      cid,
+      dentista: dentistaId, // ID do dentista selecionado
+    } = atestadoForm;
+
+    // Obter data atual
+    const hoje = new Date();
+    const dia = String(hoje.getDate()).padStart(2, '0');
+    const mes = String(hoje.getMonth() + 1).padStart(2, '0'); // Meses são 0-indexed
+    const ano = hoje.getFullYear();
+    const dataAtualFormatada = `${dia}/${mes}/${ano}`;
+
+    // Obter nome do dentista
+    const dentistaSelecionado = dentistasMock.find(d => d.id === dentistaId);
+    const nomeDentista = dentistaSelecionado ? dentistaSelecionado.nome : "Nome do Dentista Não Encontrado";
+
+    // Mapear período para texto
+    const periodoMap = {
+      manha: "Manhã",
+      tarde: "Tarde",
+      noite: "Noite",
+      integral: "Integral" // Assumindo que "Dia Integral" se traduz para "Integral" no texto
+    };
+    const periodoTexto = periodoMap[periodo] || periodo;
+
+    // Formatar tipo de repouso
+    const tipoRepousoTexto = unidadeTempoRepouso === 'dias' ? 'Dia(s)' : 'Hora(s)';
+
+    const texto = `Tempo Odontologia
+
+ATESTADO
+
+Atestado para fins ${afinsConsulta || '__________________'}, a pedido, que ${pacienteNome || '__________________'}, R.G. ${pacienteRG || '__________________'}, esteve sob tratamento odontológico neste consultório, no período da ${periodoTexto || '__________________'} às ${hora || '__:__'} do dia ${dataAtualFormatada}, necessitando o(a) mesmo(a) de ${tempoRepouso || '__'} ${tipoRepousoTexto} de repouso.
+
+Observações:
+${observacoes || ''}
+
+C.I.D: ${cid || '__________________'}
+
+<br/><br/><br/>
+
+Assinatura do paciente ou representante legal.
+
+${nomeDentista}
+`;
+
+    setAtestadoGeradoTexto(texto);
+    setMostrarVisualizacaoAtestado(true);
     setIsAtestadoModalOpen(false);
+    setAtestadoForm(initialAtestadoFormState); // Resetar formulário
   };
 
   return (
@@ -172,9 +249,9 @@ const Relatorios = () => {
         </Button>
       </div>
 
-      {/* Modal de Atestados */}
+      {/* Modal de Formulário de Atestados */}
       <Dialog open={isAtestadoModalOpen} onOpenChange={setIsAtestadoModalOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Gerar Atestado</DialogTitle>
             <DialogDescription>
@@ -254,6 +331,46 @@ const Relatorios = () => {
               </Select>
             </div>
 
+            {/* Campo Paciente */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="pacienteAtestado" className="text-right">
+                Paciente
+              </Label>
+              <Select
+                value={atestadoForm.pacienteId}
+                onValueChange={(value) => handleAtestadoFormChange('pacienteId', value)}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Selecione o paciente" />
+                </SelectTrigger>
+                <SelectContent>
+                  {pacientes.length > 0 ? (
+                    pacientes.map(p => (
+                      <SelectItem key={p.id} value={p.id.toString()}>
+                        {`${p.nome || ''} ${p.sobrenome || ''}`.trim()}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="" disabled>Nenhum paciente carregado</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Campo RG do Paciente */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="rgPacienteAtestado" className="text-right">
+                RG do Paciente
+              </Label>
+              <Input
+                id="rgPacienteAtestado"
+                value={atestadoForm.pacienteRG}
+                onChange={(e) => handleAtestadoFormChange('pacienteRG', e.target.value)}
+                className="col-span-3"
+                placeholder="RG do paciente"
+              />
+            </div>
+
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="tempoRepousoAtestado" className="text-right">
                 Tempo de Repouso
@@ -279,6 +396,35 @@ const Relatorios = () => {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Campo C.I.D */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="cidAtestado" className="text-right">
+                C.I.D (Opcional)
+              </Label>
+              <Input
+                id="cidAtestado"
+                value={atestadoForm.cid}
+                onChange={(e) => handleAtestadoFormChange('cid', e.target.value)}
+                className="col-span-3"
+                placeholder="Código C.I.D"
+              />
+            </div>
+
+            {/* Campo Observações */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="observacoesAtestado" className="text-right">
+                Observações
+              </Label>
+              <Textarea
+                id="observacoesAtestado"
+                value={atestadoForm.observacoes}
+                onChange={(e) => handleAtestadoFormChange('observacoes', e.target.value)}
+                className="col-span-3"
+                placeholder="Observações adicionais"
+                rows={3}
+              />
+            </div>
           </div>
 
           <DialogFooter>
@@ -293,6 +439,50 @@ const Relatorios = () => {
               className="bg-orange-500 hover:bg-orange-600 text-white"
             >
               Ok
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Visualização do Atestado Gerado */}
+      <Dialog open={mostrarVisualizacaoAtestado} onOpenChange={setMostrarVisualizacaoAtestado}>
+        <DialogContent className="sm:max-w-2xl"> {/* Um pouco maior para melhor visualização */}
+          <DialogHeader>
+            <DialogTitle>Atestado Gerado</DialogTitle>
+            <DialogDescription>
+              Revise o atestado abaixo. Você pode imprimi-lo ou fechá-lo.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div
+            id="atestadoParaImpressao"
+            className="py-4 px-2 border rounded-md bg-gray-50 min-h-[300px] overflow-y-auto"
+            style={{ whiteSpace: "pre-line" }} // Para respeitar quebras de linha e espaços
+            dangerouslySetInnerHTML={{ __html: atestadoGeradoTexto.replace(/\n<br\/>\n<br\/>\n<br\/>\n/g, '<br/><br/><br/>').replace(/\n/g, '<br/>') }}
+          />
+
+          <DialogFooter className="mt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setMostrarVisualizacaoAtestado(false)}
+            >
+              Fechar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                const printContents = document.getElementById('atestadoParaImpressao').innerHTML;
+                const originalContents = document.body.innerHTML;
+                document.body.innerHTML = printContents;
+                window.print();
+                document.body.innerHTML = originalContents;
+                // Recarregar a página pode ser necessário em alguns casos para restaurar estilos/eventos
+                // window.location.reload(); // Descomente se necessário
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              Imprimir
             </Button>
           </DialogFooter>
         </DialogContent>
