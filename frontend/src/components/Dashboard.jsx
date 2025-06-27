@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Stethoscope, UserPlus, Users, FileText, Home, Calendar, CalendarDays, LogOut } from 'lucide-react'
+import { Stethoscope, UserPlus, Users, FileText, Home, Calendar, CalendarDays, LogOut, BarChart } from 'lucide-react' // Adicionado BarChart
 import { useState, useEffect } from 'react'
 import API_URL from '../lib/api';
 
@@ -92,8 +92,8 @@ const Dashboard = ({ onLogout }) => {
           <p className="text-gray-600">Gerencie o cadastro de pacientes de forma eficiente</p>
         </div>
 
-        {/* Módulos do Sistema */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Módulos do Sistema - Ajustado para grid-cols-3 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           <Link to="/cadastro">
             <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-green-500">
               <CardHeader className="pb-3">
@@ -179,8 +179,32 @@ const Dashboard = ({ onLogout }) => {
           </Link>
         </div>
 
-        {/* Segunda linha de módulos */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Segunda Linha de Módulos - Apenas Relatórios agora, centralizado */}
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-6 mb-8 justify-items-center">
+          {/* Espaçador para centralizar o card de Relatórios em telas médias e grandes */}
+          <div className="hidden md:block lg:block"></div>
+          <Link to="/relatorios" className="w-full md:w-auto"> {/* Garante que o Link ocupe a largura da coluna */}
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-yellow-500 h-full"> {/* h-full para igualar altura se houver outros cards */}
+              <CardHeader className="pb-3">
+                <div className="flex items-center space-x-3">
+                  <div className="bg-yellow-100 p-2 rounded-full">
+                    <BarChart className="h-6 w-6 text-yellow-600" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg text-gray-800">Relatórios</CardTitle>
+                    <CardDescription>Visualizar e gerar relatórios</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-600">
+                  Acesse e gere relatórios detalhados do sistema
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          {/* Card de Agendamento movido para a primeira linha */}
           <Link to="/agendamento">
             <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-purple-500">
               <CardHeader className="pb-3">
