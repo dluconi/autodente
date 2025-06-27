@@ -1,7 +1,9 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.exc import IntegrityError
 from flask_cors import CORS
 import os
+import re # Para regex de email e telefone
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
@@ -16,13 +18,40 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 
+# --- Funções de Validação ---
+def is_valid_cpf(cpf: str) -> bool:
+    if not cpf: return True # Permite CPF nulo/vazio se o campo for opcional
+    # Remove caracteres não numéricos
+    cpf_num = re.sub(r'[^0-9]', '', cpf)
+    if len(cpf_num) != 11 or len(set(cpf_num)) == 1:
+        return False
+    # Validação básica de dígito verificador (simplificada para exemplo)
+    # Uma validação completa de DV seria mais complexa
+    # Aqui, apenas verificamos o formato e se não são todos números iguais.
+    # Para uma validação real, usar uma biblioteca como "validate_docbr".
+    return True
+
+def is_valid_email(email: str) -> bool:
+    if not email: return True # Permite email nulo/vazio se nao_possui_email=True ou opcional
+    # Regex simples para validação de email
+    email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(email_regex, email) is not None
+
+def is_valid_phone(phone: str) -> bool:
+    if not phone: return True # Permite telefone nulo/vazio se opcional
+    # Remove caracteres não numéricos
+    phone_num = re.sub(r'[^0-9]', '', phone)
+    # Verifica se tem entre 10 e 11 dígitos (comum para fixo e celular no Brasil)
+    return 10 <= len(phone_num) <= 11
+
+
 # Models
 class Patient(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     
     # Dados Cadastrais
     nome = db.Column(db.String(100), nullable=False)
-    sobrenome = db.Column(db.String(100), nullable=True)
+    sobrenome = db.Column(db.String(100), nullable=True) # Mantido como opcional no DB
     data_nascimento = db.Column(db.Date, nullable=True)
     sexo = db.Column(db.String(10), nullable=True)
     cpf = db.Column(db.String(14), nullable=True, unique=True)
@@ -239,24 +268,66 @@ def get_patients():
 @app.route("/api/patients", methods=["POST"])
 def create_patient():
     data = request.get_json()
+    errors = {}
+
+    # Validações
+    nome = data.get("nome")
+    if not nome or len(nome.strip()) == 0:
+        errors["nome"] = "Nome é obrigatório."
+
+    # Adicionando validação para sobrenome se for decidido que é obrigatório no backend
+    sobrenome = data.get("sobrenome")
+    # if not sobrenome or len(sobrenome.strip()) == 0: # Descomentar se sobrenome for obrigatório
+    #     errors["sobrenome"] = "Sobrenome é obrigatório."
+
+    cpf = data.get("cpf")
+    if cpf and not is_valid_cpf(cpf):
+        errors["cpf"] = "CPF inválido."
+
+    email = data.get("email")
+    nao_possui_email = data.get("nao_possui_email", False)
+    if not nao_possui_email and email and not is_valid_email(email):
+        errors["email"] = "Email inválido."
+    if nao_possui_email: # Garante que o email seja nulo se a flag estiver ativa
+        email = None
+        data["email"] = None # Atualiza o 'data' para consistência ao criar o Patient
+
+    celular = data.get("celular")
+    if celular and not is_valid_phone(celular):
+        errors["celular"] = "Número de celular inválido."
+
+    fone_fixo = data.get("fone_fixo")
+    if fone_fixo and not is_valid_phone(fone_fixo): # Mesma validação para fixo
+        errors["fone_fixo"] = "Número de telefone fixo inválido."
+
+    data_nascimento_str = data.get("data_nascimento")
+    data_nascimento_obj = None
+    if data_nascimento_str:
+        try:
+            data_nascimento_obj = datetime.strptime(data_nascimento_str, "%Y-%m-%d").date()
+        except ValueError:
+            errors["data_nascimento"] = "Formato de data de nascimento inválido. Use YYYY-MM-DD."
     
+    if errors:
+        return jsonify({"success": False, "message": "Erro de validação", "errors": errors}), 400
+
     try:
         patient = Patient(
-            nome=data.get("nome"),
-            sobrenome=data.get("sobrenome"),
-            data_nascimento=datetime.strptime(data.get("data_nascimento"), "%Y-%m-%d").date() if data.get("data_nascimento") else None,
+            nome=nome,
+            sobrenome=sobrenome, # Usar o 'sobrenome' validado ou original
+            data_nascimento=data_nascimento_obj,
             sexo=data.get("sexo"),
-            cpf=data.get("cpf"),
+            cpf=cpf, # Usar o 'cpf' validado ou original
             rg=data.get("rg"),
             estado_civil=data.get("estado_civil"),
             escolaridade=data.get("escolaridade"),
             como_conheceu=data.get("como_conheceu"),
             observacoes=data.get("observacoes"),
-            fone_fixo=data.get("fone_fixo"),
-            celular=data.get("celular"),
+            fone_fixo=fone_fixo, # Usar o 'fone_fixo' validado ou original
+            celular=celular, # Usar o 'celular' validado ou original
             outros_telefones=data.get("outros_telefones"),
-            email=data.get("email"),
-            nao_possui_email=data.get("nao_possui_email", False),
+            email=email, # Email tratado pela flag nao_possui_email
+            nao_possui_email=nao_possui_email,
             cep=data.get("cep"),
             cidade=data.get("cidade"),
             estado=data.get("estado"),
@@ -283,17 +354,24 @@ def create_patient():
             rg_representante=data.get("rg_representante"),
             telefone_representante=data.get("telefone_representante"),
             nascimento_representante=data.get("nascimento_representante"),
-            is_fully_registered=True # Cadastro completo por esta rota
+            is_fully_registered=True
         )
         
         db.session.add(patient)
         db.session.commit()
         
         return jsonify({"success": True, "message": "Paciente cadastrado com sucesso", "id": patient.id}), 201
-        
+
+    except IntegrityError as e: # Especificamente para erros de constraint (como CPF único)
+        db.session.rollback()
+        if "UNIQUE constraint failed: patient.cpf" in str(e) or "Duplicate entry" in str(e).lower() and "for key 'cpf'" in str(e).lower() : # Adaptar para a msg do seu DB
+            return jsonify({"success": False, "message": "CPF já cadastrado."}), 409 # Conflict
+        return jsonify({"success": False, "message": f"Erro de integridade no banco de dados: {str(e)}"}), 500
     except Exception as e:
         db.session.rollback()
-        return jsonify({"success": False, "message": f"Erro ao cadastrar paciente: {str(e)}"}), 500
+        # Log do erro no servidor para depuração
+        app.logger.error(f"Erro ao cadastrar paciente: {str(e)}")
+        return jsonify({"success": False, "message": "Erro interno ao cadastrar paciente. Tente novamente mais tarde."}), 500
 
 @app.route("/api/patients/<int:patient_id>", methods=["GET"])
 def get_patient(patient_id):
@@ -307,30 +385,56 @@ def get_patient(patient_id):
 def update_patient(patient_id):
     patient = Patient.query.get_or_404(patient_id)
     data = request.get_json()
+    errors = {}
+
+    # Validações (exemplo para alguns campos, aplicar a todos que precisam)
+    if "nome" in data and (not data["nome"] or len(data["nome"].strip()) == 0):
+        errors["nome"] = "Nome é obrigatório."
+
+    if "cpf" in data and data["cpf"] and not is_valid_cpf(data["cpf"]):
+        errors["cpf"] = "CPF inválido."
     
+    email_update = data.get("email")
+    nao_possui_email_update = data.get("nao_possui_email", patient.nao_possui_email) # Usa valor existente se não fornecido
+
+    if not nao_possui_email_update and email_update and not is_valid_email(email_update):
+        errors["email"] = "Email inválido."
+
+    if nao_possui_email_update:
+        data["email"] = None # Garante que o email seja nulo se a flag estiver ativa
+
+    if "data_nascimento" in data and data["data_nascimento"]:
+        try:
+            datetime.strptime(data["data_nascimento"], "%Y-%m-%d").date()
+        except ValueError:
+            errors["data_nascimento"] = "Formato de data de nascimento inválido. Use YYYY-MM-DD."
+
+    if errors:
+        return jsonify({"success": False, "message": "Erro de validação", "errors": errors}), 400
+
     try:
-        # Update fields
-        for field in ["nome", "sobrenome", "sexo", "cpf", "rg", "estado_civil", "escolaridade", 
-                     "como_conheceu", "observacoes", "fone_fixo", "celular", "outros_telefones", 
-                     "email", "nao_possui_email", "cep", "cidade", "estado", "endereco", "numero", 
-                     "bairro", "complemento", "profissao", "local_trabalho", "num_prontuario", 
-                     "tempo_trabalho", "nome_plano", "numero_plano", "nome_pai", "cpf_pai", 
-                     "profissao_pai", "rg_pai", "nome_mae", "cpf_mae", "profissao_mae", "rg_mae", 
-                     "nome_representante", "cpf_representante", "rg_representante", 
-                     "telefone_representante", "nascimento_representante"]:
-            if field in data:
+        for field in data: # Atualiza os campos fornecidos
+            if field == "data_nascimento" and data[field]:
+                setattr(patient, field, datetime.strptime(data[field], "%Y-%m-%d").date())
+            elif hasattr(patient, field):
+                 # Especificamente para 'nao_possui_email', garantir que o 'email' seja limpo se True
+                if field == "nao_possui_email" and data[field] is True:
+                    patient.email = None
                 setattr(patient, field, data[field])
         
-        if "data_nascimento" in data and data["data_nascimento"]:
-            patient.data_nascimento = datetime.strptime(data["data_nascimento"], "%Y-%m-%d").date()
-        
-        patient.is_fully_registered = True # AtualizaÃ§Ã£o implica em cadastro completo
+        patient.is_fully_registered = True
         db.session.commit()
         return jsonify({"success": True, "message": "Paciente atualizado com sucesso"})
-        
+
+    except IntegrityError as e:
+        db.session.rollback()
+        if "UNIQUE constraint failed: patient.cpf" in str(e) or "Duplicate entry" in str(e).lower() and "for key 'cpf'" in str(e).lower():
+            return jsonify({"success": False, "message": "CPF já cadastrado para outro paciente."}), 409
+        return jsonify({"success": False, "message": f"Erro de integridade no banco de dados: {str(e)}"}), 500
     except Exception as e:
         db.session.rollback()
-        return jsonify({"success": False, "message": f"Erro ao atualizar paciente: {str(e)}"}), 500
+        app.logger.error(f"Erro ao atualizar paciente {patient_id}: {str(e)}")
+        return jsonify({"success": False, "message": "Erro interno ao atualizar paciente."}), 500
 
 @app.route("/api/patients/<int:patient_id>", methods=["DELETE"])
 def delete_patient(patient_id):
