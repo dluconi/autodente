@@ -15,6 +15,7 @@ import AdminPanel from './components/AdminPanel'; // Importar AdminPanel
 import GerenciarDentistas from './components/admin/GerenciarDentistas'; // Importar GerenciarDentistas
 import AlterarSenhaAdmin from './components/admin/AlterarSenhaAdmin'; // Importar AlterarSenhaAdmin
 import TabelaPrecosAdmin from './components/admin/TabelaPrecosAdmin'; // Importar TabelaPrecosAdmin
+import { Toaster } from '@/components/ui/sonner'; // Importar Toaster
 import './App.css';
 
 function App() {
@@ -102,6 +103,7 @@ function App() {
           <Route path="/" element={<Navigate to="/login" replace />} />
         </Routes>
         {isAuthenticated && <AdminButton />} {/* Renderiza o botão se autenticado */}
+        <Toaster richColors position="top-right" /> {/* Adiciona o Toaster globalmente */}
       </div>
     </Router>
   );
