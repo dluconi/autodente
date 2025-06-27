@@ -395,7 +395,8 @@ const updateAppointmentOnBackend = async (id, newDate, newTime, durationMinutes,
 // New Component: AppointmentCard (for rendering the visual of an appointment)
 // It will now handle resizing internally.
 const AppointmentCard = React.forwardRef(
-  ({ agendamento, isDragging, style, navigate, excluirAgendamento, onAppointmentUpdate, isOverlay, ...props }, ref) => {
+  // `style` prop from dnd-kit is no longer passed here. `...props` might contain onClick from DraggableAppointmentItem if we decide to.
+  ({ agendamento, isDragging, navigate, excluirAgendamento, onAppointmentUpdate, isOverlay, ...otherProps }, ref) => {
     if (!agendamento) return null;
 
     // Calculate initial height in pixels for ResizableBox
@@ -406,17 +407,16 @@ const AppointmentCard = React.forwardRef(
 
     const [resizableHeight, setResizableHeight] = useState(initialHeightPx);
 
-    useEffect(() => { // Sync height if agendamento.duration_minutes changes from outside
+    useEffect(() => {
       setResizableHeight((agendamento.duration_minutes / 30) * slotHeightPx);
     }, [agendamento.duration_minutes, slotHeightPx]);
 
-
-    const cardStyle = { // Base style for the draggable part / inner content
-      ...style, // This comes from useDraggable usually
-      height: '100%', // ResizableBox will control the actual height of its outer div
-      opacity: isDragging ? 0.7 : 1,
-      zIndex: isDragging ? 2000 : 10,
-      cursor: style?.cursor || (isDragging ? 'grabbing' : 'grab'),
+    // Base style for the inner content of the card.
+    // Positioning and transforms are handled by the DraggableAppointmentItem wrapper.
+    // Cursor for dragging is also handled by the wrapper's listeners.
+    const innerCardStyle = {
+      height: '100%',
+      opacity: isDragging && !isOverlay ? 0.7 : 1, // Dim original item if dragging, but not overlay
     };
 
     const handleButtonAction = (e, actionFn) => {
@@ -454,25 +454,20 @@ const AppointmentCard = React.forwardRef(
       draggableOpts: { enableUserSelectHack: false }, // Important for dnd-kit compatibility
       minConstraints: [Infinity, slotHeightPx], // Min height is one slot
       maxConstraints: [Infinity, slotHeightPx * 8], // Max 4 hours (8 slots of 30 min)
-      axis: "s", // South handle only
-      className: `absolute inset-x-0 mx-0.5 rounded border group text-xs flex items-center space-x-1.5 overflow-hidden bg-white ${ isDragging || isOverlay ? 'shadow-xl' : 'hover:bg-gray-50'} ${
+      axis: "s",
+      // className for ResizableBox itself. It's no longer absolutely positioned.
+      // It will define borders, background, etc. Parent div in DraggableAppointmentItem handles positioning.
+      className: `w-full h-full rounded border group text-xs flex items-center space-x-1.5 overflow-hidden bg-white ${isDragging ? 'shadow-md' : 'hover:bg-gray-50'} ${
         agendamento.patient_is_fully_registered === false ? 'border-red-400' : 'border-blue-400'
       }`,
-      // Custom handle so it's less intrusive and doesn't interfere with drag
       handle: <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-1 bg-slate-500 opacity-50 group-hover:opacity-100 cursor-s-resize rounded-t-sm z-30" onPointerDown={(e) => e.stopPropagation()} />,
     };
 
-    // For the DragOverlay, we don't want it to be resizable itself.
-    // We render the core content without ResizableBox for the overlay.
     const coreContent = (
       <div
-        style={cardStyle} // Apply draggable styles here for the overlay
-        className={`w-full h-full flex items-center space-x-1.5 overflow-hidden p-0.5
-          ${isOverlay ? (agendamento.patient_is_fully_registered === false ? 'border-red-400' : 'border-blue-400') + ' bg-white border rounded' : ''}
-          ${isOverlay && isDragging ? 'shadow-xl opacity-70' : ''}
-        `} // Simplified classes for overlay, or match original if complex
-         // The className from ResizableBox is applied to its outer div.
-         // If not isOverlay, the ResizableBox className will handle the border/bg.
+        style={innerCardStyle}
+        className={`w-full h-full flex items-center space-x-1.5 overflow-hidden p-0.5`}
+        // No generic onClick here for navigation. Internal button clicks are handled.
       >
         <div className="flex items-center h-full space-x-1 w-full overflow-hidden">
           <span className={`w-2 h-2 rounded-full ${
@@ -481,7 +476,7 @@ const AppointmentCard = React.forwardRef(
           <span className="font-medium truncate flex-1 text-sm text-gray-700">
             {agendamento.patient_name}
           </span>
-          {!(isDragging || isOverlay) && ( // Hide buttons when dragging or in overlay
+          {!(isDragging || isOverlay) && (
             <div className="absolute top-0.5 right-0.5 flex flex-col space-y-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-20">
               <Button variant="ghost" size="icon" className="h-4 w-4 p-0 hover:bg-blue-100 rounded-sm" title="Editar agendamento" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => handleButtonAction(e, () => navigate(`/agendamentos/editar/${agendamento.id}`))} >
                 <Edit className="h-2.5 w-2.5 text-blue-700" />
@@ -495,31 +490,47 @@ const AppointmentCard = React.forwardRef(
       </div>
     );
 
-    if (isOverlay) { // The DragOverlay should not be resizable itself, just show the content
-      return <div ref={ref} {...props} style={{...cardStyle, height: `${resizableHeight}px`}} className={`absolute inset-x-0 mx-0.5 rounded border group text-xs flex items-center space-x-1.5 overflow-hidden bg-white ${ isDragging || isOverlay ? 'shadow-xl' : 'hover:bg-gray-50'} ${ agendamento.patient_is_fully_registered === false ? 'border-red-400' : 'border-blue-400' }`}>{coreContent}</div>;
+    if (isOverlay) {
+      // The overlay uses the `ref` (forwardedRef) from DragOverlay.
+      // Its style for height is based on the original item's duration.
+      // `otherProps` from DragOverlay might include transform if not using `modifiers`.
+      const overlayStyle = {
+         height: `${initialHeightPx}px`,
+         opacity: 0.7,
+         // width: '100%' // Should fill the DragOverlay's wrapper if DragOverlay applies good dimensions
+      };
+      // The className here is for the visual representation of the card in the overlay.
+      return (
+        <div
+          ref={ref} // This is the ref from DragOverlay
+          style={overlayStyle}
+          className={`w-full rounded border group text-xs flex items-center space-x-1.5 overflow-hidden bg-white shadow-xl ${ agendamento.patient_is_fully_registered === false ? 'border-red-400' : 'border-blue-400' }`}
+          // {...otherProps} // Spread otherProps from DragOverlay if any (e.g., style for position)
+        >
+           {/* Render a simplified version of coreContent or the full one if interactions are needed (usually not) */}
+           <div className="w-full h-full flex items-center space-x-1.5 overflow-hidden p-0.5">
+              <span className={`w-2 h-2 rounded-full ${ agendamento.patient_is_fully_registered === false ? 'bg-red-600' : 'bg-blue-600' } flex-shrink-0`}></span>
+              <span className="font-medium truncate flex-1 text-sm text-gray-700">{agendamento.patient_name}</span>
+          </div>
+        </div>
+      );
     }
 
+    // For the actual draggable item, ResizableBox handles its own ref internally if needed.
+    // The `ref` (forwardedRef) passed to AppointmentCard is not used by ResizableBox here.
+    // `otherProps` are not spread onto ResizableBox as they are not meant for it.
     return (
-      <ResizableBox {...resizableBoxProps} ref={ref} {...props}>
-        {/* Pass ...props (like listeners/attributes from useDraggable) to the ResizableBox,
-            which then should be passed to its child if ResizableBox doesn't forward them.
-            Or, apply draggable to an inner div if ResizableBox consumes events.
-            For now, assuming ResizableBox forwards or we attach draggable to it.
-            The `ref` from useDraggable (`setNodeRef`) should also go to ResizableBox.
-         */}
+      <ResizableBox {...resizableBoxProps}>
         {coreContent}
       </ResizableBox>
     );
   }
 );
 
-
 // New Component: DraggableAppointmentItem
 const DraggableAppointmentItem = ({ agendamento, navigate, excluirAgendamento, onAppointmentUpdate }) => {
   const { attributes, listeners, setNodeRef, transform, active } = useDraggable({
     id: `appointment_${agendamento.id}`,
-    // Prevent drag if resize handle is the target
-    disabled: false, // We will manage this via event stopPropagation on resize handles
     data: {
       type: 'appointment',
       appointmentData: agendamento,
@@ -528,32 +539,32 @@ const DraggableAppointmentItem = ({ agendamento, navigate, excluirAgendamento, o
 
   const isBeingDragged = active?.id === `appointment_${agendamento.id}`;
 
-  const style = { // This style is for the position due to dragging
+  const draggableWrapperStyle = {
     transform: CSS.Translate.toString(transform),
-    // Visibility of the original item is handled by dnd-kit if an overlay is used.
-    // If not using overlay for dragging, then this item itself moves.
-    // For now, assuming DragOverlay handles showing the item while dragging, so original can be hidden.
     visibility: isBeingDragged ? 'hidden' : 'visible',
+    position: 'absolute',
+    left: '0.125rem',
+    right: '0.125rem',
+    // The height will be dictated by AppointmentCard which contains ResizableBox
+    zIndex: isBeingDragged ? 1001 : 100, // Ensure dragged item is above others, but below overlay
+    cursor: isBeingDragged ? 'grabbing' : 'grab', // Explicitly set grab/grabbing cursor
   };
 
   return (
-    <AppointmentCard
-      ref={setNodeRef} // Draggable ref
-      style={style} // Positional style from drag
-      agendamento={agendamento}
-      isDragging={isBeingDragged} // To style the original item if it's being dragged (e.g. for opacity)
-      navigate={navigate}
-      excluirAgendamento={excluirAgendamento}
-      onAppointmentUpdate={onAppointmentUpdate} // Pass the update handler
-      {...listeners} // Draggable listeners
-      {...attributes} // Draggable attributes
+    <div
+      ref={setNodeRef}
+      style={draggableWrapperStyle}
+      {...listeners}
+      {...attributes}
       onClick={(e) => {
-        // Prevent navigation if a drag action just completed or if a resize handle was likely interacted with.
-        // `transform` indicates a drag. For resize, the ResizableBox's own handlers should stop propagation.
-        if (transform) {
+        // This click is on the main draggable wrapper.
+        // If a drag just happened (transform is not null), or if a drag is active, prevent navigation.
+        // ResizableBox handles should use e.stopPropagation() on pointerdown.
+        if (transform || active) {
           e.stopPropagation();
           return;
         }
+        // If not dragging, proceed with navigation.
         e.stopPropagation();
         if (agendamento.patient_is_fully_registered === false) {
             navigate(`/cadastro/${agendamento.patient_id}`);
@@ -561,7 +572,19 @@ const DraggableAppointmentItem = ({ agendamento, navigate, excluirAgendamento, o
             navigate(`/visualizar/${agendamento.patient_id}`);
         }
       }}
-    />
+      // className="draggable-appointment-item" // For debugging if needed
+    >
+      <AppointmentCard
+        agendamento={agendamento}
+        isDragging={isBeingDragged} // For internal styling of AppointmentCard (e.g. opacity)
+        navigate={navigate}
+        excluirAgendamento={excluirAgendamento}
+        onAppointmentUpdate={onAppointmentUpdate}
+        // No draggable listeners or style here, they are on the parent div.
+        // The AppointmentCard's own onClick for its internal buttons will still work due to event bubbling if not stopped.
+        // The main navigation click is now handled by the wrapper div.
+      />
+    </div>
   );
 };
 
