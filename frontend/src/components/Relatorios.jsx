@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react'; // Adicionado useRef
 import { Button } from '@/components/ui/button';
 import { Download, FileText } from 'lucide-react'; // Adicionado FileText
 import jsPDF from 'jspdf';
@@ -25,6 +25,7 @@ const Relatorios = () => {
   const [isAtestadoModalOpen, setIsAtestadoModalOpen] = useState(false);
   const [atestadoGeradoTexto, setAtestadoGeradoTexto] = useState('');
   const [mostrarVisualizacaoAtestado, setMostrarVisualizacaoAtestado] = useState(false);
+  const atestadoEditavelRef = useRef(null); // Ref para a div contentEditable
 
   const initialAtestadoFormState = {
     hora: '',
@@ -456,10 +457,20 @@ ${nomeDentista}
 
           <div
             id="atestadoParaImpressao"
-            className="py-4 px-2 border rounded-md bg-gray-50 min-h-[300px] overflow-y-auto"
-            style={{ whiteSpace: "pre-line" }} // Para respeitar quebras de linha e espaços
+            ref={atestadoEditavelRef}
+            contentEditable="true"
+            suppressContentEditableWarning={true} // Necessário para evitar warning do React com dangerouslySetInnerHTML e contentEditable
+            className="py-4 px-2 border rounded-md bg-gray-50 min-h-[300px] overflow-y-auto focus:outline-none focus:ring-2 focus:ring-blue-500"
+            style={{ whiteSpace: "pre-line", fontFamily: "serif" }} // Estilo conforme exemplo e para preservar quebras de linha
             dangerouslySetInnerHTML={{ __html: atestadoGeradoTexto.replace(/\n<br\/>\n<br\/>\n<br\/>\n/g, '<br/><br/><br/>').replace(/\n/g, '<br/>') }}
           />
+          {/*
+            Nota sobre suppressContentEditableWarning:
+            Idealmente, para uma div contentEditable gerenciada pelo React, o conteúdo seria controlado via estado
+            e atualizado por eventos como onInput. Como estamos inicializando com dangerouslySetInnerHTML
+            e permitindo edição livre, este warning é suprimido. Se precisarmos sincronizar o conteúdo editado
+            de volta para o estado React, uma abordagem mais robusta com onInput/onBlur seria necessária.
+          */}
 
           <DialogFooter className="mt-4">
             <Button
@@ -472,13 +483,53 @@ ${nomeDentista}
             <Button
               type="button"
               onClick={() => {
-                const printContents = document.getElementById('atestadoParaImpressao').innerHTML;
-                const originalContents = document.body.innerHTML;
-                document.body.innerHTML = printContents;
-                window.print();
-                document.body.innerHTML = originalContents;
-                // Recarregar a página pode ser necessário em alguns casos para restaurar estilos/eventos
-                // window.location.reload(); // Descomente se necessário
+                if (atestadoEditavelRef.current) {
+                  const printContents = atestadoEditavelRef.current.innerHTML;
+                  const originalContents = document.body.innerHTML;
+
+                  // Adiciona uma div wrapper para aplicar estilos de impressão apenas ao conteúdo do atestado
+                  // E os estilos para centralizar e formatar a página de impressão
+                  document.body.innerHTML = `
+                    <html>
+                      <head>
+                        <title>Atestado Odontológico</title>
+                        <style>
+                          @media print {
+                            body {
+                              margin: 0;
+                              padding: 20mm; /* Margens da página de impressão */
+                              font-family: serif;
+                              font-size: 12pt;
+                              line-height: 1.5;
+                            }
+                            #printable-wrapper {
+                              width: 100%;
+                              max-width: 180mm; /* Largura A4 menos margens */
+                              margin: 0 auto; /* Centralizar */
+                            }
+                            /* Ocultar tudo que não seja o wrapper do atestado */
+                            body > *:not(#printable-wrapper) {
+                              display: none !important;
+                            }
+                            /* Estilos específicos para o conteúdo do atestado, se necessário */
+                            #printable-wrapper strong { font-weight: bold; }
+                          }
+                        </style>
+                      </head>
+                      <body>
+                        <div id="printable-wrapper">
+                          ${printContents}
+                        </div>
+                      </body>
+                    </html>
+                  `;
+                  window.print();
+                  document.body.innerHTML = originalContents;
+                  // Considerar recarregar para garantir a restauração completa do estado da SPA
+                  // window.location.reload();
+                } else {
+                  console.error("Ref do atestado editável não encontrada.");
+                }
               }}
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
