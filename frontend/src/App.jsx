@@ -9,6 +9,7 @@ import HistoricoPaciente from './components/HistoricoPaciente';
 import Orcamento from './components/Orcamento';
 import Agendamento from './components/Agendamento';
 import EditarAgendamento from './components/EditarAgendamento'; // Correto!
+import Relatorios from './components/Relatorios'; // Adicionar importação
 import './App.css';
 
 function App() {
@@ -72,6 +73,10 @@ function App() {
           <Route 
             path="/historico" 
             element={isAuthenticated ? <HistoricoPaciente /> : <Navigate to="/login" replace />}
+          />
+          <Route
+            path="/relatorios"
+            element={isAuthenticated ? <Relatorios /> : <Navigate to="/login" replace />}
           />
           <Route path="/" element={<Navigate to="/login" replace />} />
         </Routes>
