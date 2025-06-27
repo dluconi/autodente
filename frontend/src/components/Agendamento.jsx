@@ -1,6 +1,21 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+} from '@dnd-kit/core';
+import { useDraggable } from '@dnd-kit/core';
+import { useDroppable } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
+import { ResizableBox } from 'react-resizable';
+// CSS for react-resizable is now imported in main.jsx
+import { toast } from 'sonner';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
@@ -344,14 +359,251 @@ const HORARIOS_DO_DIA = (() => {
   return horarios;
 })();
 
+// Placeholder for API call
+const updateAppointmentOnBackend = async (id, newDate, newTime, durationMinutes, patientId, observacao) => {
+  console.log(`Updating appointment ${id} to ${newDate} ${newTime}, duration ${durationMinutes} min`);
+  try {
+    const response = await fetch(`${API_URL}/api/appointments/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        appointment_date: newDate,
+        appointment_time: newTime,
+        duration_minutes: durationMinutes,
+        patient_id: patientId,
+        observacao: observacao
+      }),
+    });
+    const result = await response.json();
+    if (result.success) {
+      toast.success('Agendamento atualizado com sucesso!');
+      return true;
+    } else {
+      toast.error(`Erro ao atualizar: ${result.message || 'Erro desconhecido'}`);
+      console.error("Error updating appointment:", result.message);
+      return false;
+    }
+  } catch (error) {
+    toast.error('Erro de conexão ao atualizar agendamento.');
+    console.error("Network error updating appointment:", error);
+    return false;
+  }
+};
+
+// New Component: AppointmentCard (for rendering the visual of an appointment)
+// It will now handle resizing internally.
+const AppointmentCard = React.forwardRef(
+  ({ agendamento, isDragging, style, navigate, excluirAgendamento, onAppointmentUpdate, isOverlay, ...props }, ref) => {
+    if (!agendamento) return null;
+
+    // Calculate initial height in pixels for ResizableBox
+    // Assuming 1rem = 16px (common browser default)
+    // h-8 for a slot = 2rem = 32px. This is one 30-min slot.
+    const slotHeightPx = 32;
+    const initialHeightPx = (agendamento.duration_minutes / 30) * slotHeightPx;
+
+    const [resizableHeight, setResizableHeight] = useState(initialHeightPx);
+
+    useEffect(() => { // Sync height if agendamento.duration_minutes changes from outside
+      setResizableHeight((agendamento.duration_minutes / 30) * slotHeightPx);
+    }, [agendamento.duration_minutes, slotHeightPx]);
+
+
+    const cardStyle = { // Base style for the draggable part / inner content
+      ...style, // This comes from useDraggable usually
+      height: '100%', // ResizableBox will control the actual height of its outer div
+      opacity: isDragging ? 0.7 : 1,
+      zIndex: isDragging ? 2000 : 10,
+      cursor: style?.cursor || (isDragging ? 'grabbing' : 'grab'),
+    };
+
+    const handleButtonAction = (e, actionFn) => {
+      e.stopPropagation();
+      actionFn();
+    };
+
+    const onResize = (event, { size }) => {
+      // While resizing, update visual height.
+      // No backend call yet, only onResizeStop.
+      // Prevent drag from starting if resize is active.
+      event.stopPropagation();
+      setResizableHeight(size.height);
+    };
+
+    const onResizeStop = async (event, { size }) => {
+      event.stopPropagation();
+      const newHeightPx = size.height;
+      // Snap to nearest slot height (30 min increments)
+      const numSlots = Math.max(1, Math.round(newHeightPx / slotHeightPx));
+      const newDurationMinutes = numSlots * 30;
+      const finalHeightPx = numSlots * slotHeightPx;
+      setResizableHeight(finalHeightPx); // Snap visual
+
+      if (newDurationMinutes !== agendamento.duration_minutes) {
+        onAppointmentUpdate(agendamento.id, { duration_minutes: newDurationMinutes });
+      }
+    };
+
+    const resizableBoxProps = {
+      height: resizableHeight,
+      width: Infinity, // Takes full width of parent slot normally
+      onResize: onResize,
+      onResizeStop: onResizeStop,
+      draggableOpts: { enableUserSelectHack: false }, // Important for dnd-kit compatibility
+      minConstraints: [Infinity, slotHeightPx], // Min height is one slot
+      maxConstraints: [Infinity, slotHeightPx * 8], // Max 4 hours (8 slots of 30 min)
+      axis: "s", // South handle only
+      className: `absolute inset-x-0 mx-0.5 rounded border group text-xs flex items-center space-x-1.5 overflow-hidden bg-white ${ isDragging || isOverlay ? 'shadow-xl' : 'hover:bg-gray-50'} ${
+        agendamento.patient_is_fully_registered === false ? 'border-red-400' : 'border-blue-400'
+      }`,
+      // Custom handle so it's less intrusive and doesn't interfere with drag
+      handle: <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-1 bg-slate-500 opacity-50 group-hover:opacity-100 cursor-s-resize rounded-t-sm z-30" onPointerDown={(e) => e.stopPropagation()} />,
+    };
+
+    // For the DragOverlay, we don't want it to be resizable itself.
+    // We render the core content without ResizableBox for the overlay.
+    const coreContent = (
+      <div
+        style={cardStyle} // Apply draggable styles here for the overlay
+        className={`w-full h-full flex items-center space-x-1.5 overflow-hidden p-0.5
+          ${isOverlay ? (agendamento.patient_is_fully_registered === false ? 'border-red-400' : 'border-blue-400') + ' bg-white border rounded' : ''}
+          ${isOverlay && isDragging ? 'shadow-xl opacity-70' : ''}
+        `} // Simplified classes for overlay, or match original if complex
+         // The className from ResizableBox is applied to its outer div.
+         // If not isOverlay, the ResizableBox className will handle the border/bg.
+      >
+        <div className="flex items-center h-full space-x-1 w-full overflow-hidden">
+          <span className={`w-2 h-2 rounded-full ${
+            agendamento.patient_is_fully_registered === false ? 'bg-red-600' : 'bg-blue-600'
+          } flex-shrink-0`}></span>
+          <span className="font-medium truncate flex-1 text-sm text-gray-700">
+            {agendamento.patient_name}
+          </span>
+          {!(isDragging || isOverlay) && ( // Hide buttons when dragging or in overlay
+            <div className="absolute top-0.5 right-0.5 flex flex-col space-y-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+              <Button variant="ghost" size="icon" className="h-4 w-4 p-0 hover:bg-blue-100 rounded-sm" title="Editar agendamento" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => handleButtonAction(e, () => navigate(`/agendamentos/editar/${agendamento.id}`))} >
+                <Edit className="h-2.5 w-2.5 text-blue-700" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-4 w-4 p-0 hover:bg-red-100 rounded-sm" title="Excluir agendamento" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => handleButtonAction(e, () => excluirAgendamento(agendamento.id))} >
+                <Trash2 className="h-2.5 w-2.5 text-red-700" />
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+
+    if (isOverlay) { // The DragOverlay should not be resizable itself, just show the content
+      return <div ref={ref} {...props} style={{...cardStyle, height: `${resizableHeight}px`}} className={`absolute inset-x-0 mx-0.5 rounded border group text-xs flex items-center space-x-1.5 overflow-hidden bg-white ${ isDragging || isOverlay ? 'shadow-xl' : 'hover:bg-gray-50'} ${ agendamento.patient_is_fully_registered === false ? 'border-red-400' : 'border-blue-400' }`}>{coreContent}</div>;
+    }
+
+    return (
+      <ResizableBox {...resizableBoxProps} ref={ref} {...props}>
+        {/* Pass ...props (like listeners/attributes from useDraggable) to the ResizableBox,
+            which then should be passed to its child if ResizableBox doesn't forward them.
+            Or, apply draggable to an inner div if ResizableBox consumes events.
+            For now, assuming ResizableBox forwards or we attach draggable to it.
+            The `ref` from useDraggable (`setNodeRef`) should also go to ResizableBox.
+         */}
+        {coreContent}
+      </ResizableBox>
+    );
+  }
+);
+
+
+// New Component: DraggableAppointmentItem
+const DraggableAppointmentItem = ({ agendamento, navigate, excluirAgendamento, onAppointmentUpdate }) => {
+  const { attributes, listeners, setNodeRef, transform, active } = useDraggable({
+    id: `appointment_${agendamento.id}`,
+    // Prevent drag if resize handle is the target
+    disabled: false, // We will manage this via event stopPropagation on resize handles
+    data: {
+      type: 'appointment',
+      appointmentData: agendamento,
+    }
+  });
+
+  const isBeingDragged = active?.id === `appointment_${agendamento.id}`;
+
+  const style = { // This style is for the position due to dragging
+    transform: CSS.Translate.toString(transform),
+    // Visibility of the original item is handled by dnd-kit if an overlay is used.
+    // If not using overlay for dragging, then this item itself moves.
+    // For now, assuming DragOverlay handles showing the item while dragging, so original can be hidden.
+    visibility: isBeingDragged ? 'hidden' : 'visible',
+  };
+
+  return (
+    <AppointmentCard
+      ref={setNodeRef} // Draggable ref
+      style={style} // Positional style from drag
+      agendamento={agendamento}
+      isDragging={isBeingDragged} // To style the original item if it's being dragged (e.g. for opacity)
+      navigate={navigate}
+      excluirAgendamento={excluirAgendamento}
+      onAppointmentUpdate={onAppointmentUpdate} // Pass the update handler
+      {...listeners} // Draggable listeners
+      {...attributes} // Draggable attributes
+      onClick={(e) => {
+        // Prevent navigation if a drag action just completed or if a resize handle was likely interacted with.
+        // `transform` indicates a drag. For resize, the ResizableBox's own handlers should stop propagation.
+        if (transform) {
+          e.stopPropagation();
+          return;
+        }
+        e.stopPropagation();
+        if (agendamento.patient_is_fully_registered === false) {
+            navigate(`/cadastro/${agendamento.patient_id}`);
+        } else {
+            navigate(`/visualizar/${agendamento.patient_id}`);
+        }
+      }}
+    />
+  );
+};
+
+
+// New Component: DroppableSlot
+const DroppableSlot = ({ id, children, className, onSlotClick, isOver }) => {
+  const { setNodeRef } = useDroppable({
+    id: id,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`${className} ${isOver ? 'bg-green-200' : ''}`}
+      onClick={onSlotClick}
+    >
+      {children}
+    </div>
+  );
+};
+
+
 // Componente do Calendario
-const CalendarioAgendamentos = ({ onSlotClick }) => { // Adicionado onSlotClick como prop
+const CalendarioAgendamentos = ({ onSlotClick }) => {
   const [calendarAppointments, setCalendarAppointments] = useState([]);
   const [diaReferencia, setDiaReferencia] = useState(new Date());
   const [calendarLoading, setCalendarLoading] = useState(true);
   const navigate = useNavigate();
+  const [activeId, setActiveId] = useState(null); // For DndContext
+  const [draggedAppointmentData, setDraggedAppointmentData] = useState(null); // For DragOverlay
 
-  // Função para buscar/atualizar agendamentos, pode ser chamada após um novo agendamento
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5, // Start dragging after 5px movement
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      // coordinateGetter: sortableKeyboardCoordinates, // Not using sortable for now
+    })
+  );
+
   const fetchCalendarAppointments = async () => {
     try {
       setCalendarLoading(true);
@@ -368,7 +620,131 @@ const CalendarioAgendamentos = ({ onSlotClick }) => { // Adicionado onSlotClick 
 
   useEffect(() => {
     fetchCalendarAppointments();
-  }, [diaReferencia]); // Recarregar quando a semana de referência muda
+  }, [diaReferencia]);
+
+
+  const handleDragStart = (event) => {
+    setActiveId(event.active.id);
+    const appointmentData = event.active.data.current?.appointmentData;
+    if (appointmentData) {
+      setDraggedAppointmentData(appointmentData);
+    }
+  };
+
+  const handleDragEnd = async (event) => {
+    setActiveId(null);
+    setDraggedAppointmentData(null);
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const draggedAppointmentIdStr = active.id.toString().replace('appointment_', '');
+      const draggedAppointmentId = parseInt(draggedAppointmentIdStr, 10);
+
+      const [newDateStr, newTimeStr] = over.id.toString().split('_');
+
+      const originalAppointment = calendarAppointments.find(app => app.id === draggedAppointmentId);
+
+      if (!originalAppointment) {
+        console.error("Original appointment not found:", draggedAppointmentId);
+        toast.error("Erro: Agendamento original não encontrado.");
+        return;
+      }
+
+      // Optimistic UI Update
+      const originalAppointmentsState = [...calendarAppointments]; // Save for potential revert
+      setCalendarAppointments(prevApps =>
+        prevApps.map(app =>
+          app.id === draggedAppointmentId
+            ? { ...app, appointment_date: newDateStr, appointment_time: newTimeStr }
+            : app
+        )
+      );
+
+      const success = await updateAppointmentOnBackend(
+        draggedAppointmentId,
+        newDateStr,
+        newTimeStr,
+        originalAppointment.duration_minutes,
+        originalAppointment.patient_id,
+        originalAppointment.observacao
+      );
+
+      if (success) {
+        // UI already updated optimistically, fetch to ensure consistency if backend made further changes (e.g. ID)
+        // or if there are other listeners for calendarAppointments
+        fetchCalendarAppointments();
+      } else {
+        // Revert UI
+        setCalendarAppointments(originalAppointmentsState);
+        // Error toast is handled by updateAppointmentOnBackend
+      }
+    }
+  };
+
+  const [currentOverSlot, setCurrentOverSlot] = useState(null);
+  const handleDragOver = (event) => {
+    const { over } = event;
+    setCurrentOverSlot(over ? over.id : null);
+  };
+
+  const handleAppointmentUpdate = async (appointmentId, updates) => {
+    const originalAppointment = calendarAppointments.find(app => app.id === appointmentId);
+    if (!originalAppointment) {
+      console.error("Cannot update, original appointment not found:", appointmentId);
+      toast.error("Erro: Agendamento original não encontrado para atualização.");
+      return;
+    }
+
+    // Ensure that appointment_date and appointment_time are strings if they exist in updates
+    // The backend expects YYYY-MM-DD for date and HH:MM for time.
+    let processedUpdates = { ...updates };
+    if (processedUpdates.appointment_date && typeof processedUpdates.appointment_date !== 'string') {
+        processedUpdates.appointment_date = processedUpdates.appointment_date.toISOString().split('T')[0];
+    }
+     if (processedUpdates.appointment_time && typeof processedUpdates.appointment_time !== 'string') {
+        // This case should ideally not happen if time is always string HH:MM
+        // but as a safeguard:
+        console.warn("appointment_time in update was not a string, attempting conversion if it's a Date object");
+        if (processedUpdates.appointment_time instanceof Date) {
+             const hours = String(processedUpdates.appointment_time.getHours()).padStart(2, '0');
+             const minutes = String(processedUpdates.appointment_time.getMinutes()).padStart(2, '0');
+             processedUpdates.appointment_time = `${hours}:${minutes}`;
+        }
+    }
+
+
+    const updatedAppointmentData = {
+      ...originalAppointment,
+      ...processedUpdates,
+    };
+
+    // Optimistic UI Update
+    const originalAppointmentsState = [...calendarAppointments];
+    setCalendarAppointments(prevApps =>
+      prevApps.map(app =>
+        app.id === appointmentId
+          ? updatedAppointmentData
+          : app
+      )
+    );
+
+    const success = await updateAppointmentOnBackend(
+      appointmentId,
+      updatedAppointmentData.appointment_date,
+      updatedAppointmentData.appointment_time,
+      updatedAppointmentData.duration_minutes,
+      updatedAppointmentData.patient_id,
+      updatedAppointmentData.observacao
+    );
+
+    if (success) {
+      // If the update involved changing date/time, it might affect the grouping
+      // Fetching ensures the agendamentosPorDiaEHora memo re-runs with fresh, correctly grouped data
+      fetchCalendarAppointments();
+    } else {
+      setCalendarAppointments(originalAppointmentsState); // Revert on failure
+    }
+  };
 
 
   const agendamentosPorDiaEHora = useMemo(() => {
@@ -378,10 +754,12 @@ const CalendarioAgendamentos = ({ onSlotClick }) => { // Adicionado onSlotClick 
     }
     calendarAppointments.forEach(app => {
       const dateStr = app.appointment_date;
-      const timeStr = app.appointment_time.substring(0, 5);
+      const timeStr = app.appointment_time.substring(0, 5); // Ensure HH:MM format
       if (!grouped[dateStr]) grouped[dateStr] = {};
       if (!grouped[dateStr][timeStr]) grouped[dateStr][timeStr] = [];
       grouped[dateStr][timeStr].push(app);
+      // Sort by ID or a specific order if multiple appointments can truly start at the exact same time visually
+      // For now, assuming the first one is the primary one for display in a slot if overlap occurs.
       grouped[dateStr][timeStr].sort((a, b) => a.id - b.id);
     });
     return grouped;
@@ -426,125 +804,107 @@ const CalendarioAgendamentos = ({ onSlotClick }) => { // Adicionado onSlotClick 
   const semanaAtualVisivel = getDiasDaSemana(getInicioDaSemana(diaReferencia));
 
   return (
-    <Card className="shadow-lg w-full flex flex-col">
-      <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
-        <div className="flex justify-between items-center">
-          <Button variant="ghost" size="sm" onClick={semanaAnterior} className="text-white hover:bg-white/20">
-            &larr; Anterior
-          </Button>
-          <CardTitle className="flex items-center space-x-2 text-lg">
-            <Calendar className="h-5 w-5" />
-            <span>Agenda Semanal</span>
-          </CardTitle>
-          <Button variant="ghost" size="sm" onClick={proximaSemana} className="text-white hover:bg-white/20">
-            Próxima &rarr;
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent className="p-0 flex flex-col flex-1">
-        <div className="flex sticky top-0 bg-gray-50 z-10 border-b">
-          <div className="w-16 flex-shrink-0 border-r border-gray-300 bg-gray-50"></div>
-          <div className="flex-1 grid grid-cols-7">
-            {semanaAtualVisivel.map((dia, index) => (
-              <div key={index} className="p-2 text-center border-r h-10 flex items-center justify-center">
-                <span className="text-lg font-medium">{dia.getDate()}</span>
-                <span className="text-xs text-gray-600 ml-1">- {diasDaSemanaNomes[dia.getDay()]}</span>
-              </div>
-            ))}
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragOver={handleDragOver}
+    >
+      <Card className="shadow-lg w-full flex flex-col">
+        <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+          <div className="flex justify-between items-center">
+            <Button variant="ghost" size="sm" onClick={semanaAnterior} className="text-white hover:bg-white/20">
+              &larr; Anterior
+            </Button>
+            <CardTitle className="flex items-center space-x-2 text-lg">
+              <Calendar className="h-5 w-5" />
+              <span>Agenda Semanal</span>
+            </CardTitle>
+            <Button variant="ghost" size="sm" onClick={proximaSemana} className="text-white hover:bg-white/20">
+              Próxima &rarr;
+            </Button>
           </div>
-        </div>
-
-        {calendarLoading ? (
-          <div className="p-8 text-center text-gray-500 flex-1">
-            Carregando agendamentos...
-          </div>
-        ) : (
-          <div className="flex flex-1 overflow-y-auto overflow-x-hidden">
-            <div className="w-16 sticky left-0 bg-gray-50 z-20 border-r border-gray-300 flex-shrink-0">
-              {HORARIOS_DO_DIA.map(horario => (
-                <div key={horario} className="h-8 flex items-center justify-start px-2 text-xs text-gray-600 border-b border-gray-200">
-                  {horario}
-                </div>
-              ))}
-            </div>
+        </CardHeader>
+        <CardContent className="p-0 flex flex-col flex-1">
+          <div className="flex sticky top-0 bg-gray-50 z-10 border-b">
+            <div className="w-16 flex-shrink-0 border-r border-gray-300 bg-gray-50"></div> {/* Time gutter */}
             <div className="flex-1 grid grid-cols-7">
-              {semanaAtualVisivel.map((dia, indexDia) => (
-                <div key={indexDia} className="border-r border-gray-300 flex flex-col">
-                  {HORARIOS_DO_DIA.map(horario => {
-                    const agendamentosNoSlot = agendamentosPorDiaEHora[dia.toISOString().split('T')[0]]?.[horario] || [];
-                    return (
-                      <div
-                        key={`${dia.toISOString()}-${horario}`}
-                        className="h-8 border-b border-gray-200 relative cursor-pointer hover:bg-blue-50 transition-colors" // Adicionado cursor e hover
-                        onClick={() => onSlotClick(dia, horario)} // Chamar onSlotClick
-                      >
-                        {agendamentosNoSlot.map((agendamento, idxAg) => (
-                          idxAg === 0 && (
-                            <div
-                              key={agendamento.id}
-                              className={`absolute inset-x-0 mx-0.5 p-0.5 rounded border group text-xs flex items-center space-x-1.5 overflow-hidden bg-white hover:bg-gray-50 ${
-                                agendamento.patient_is_fully_registered === false ? 'border-red-400' : 'border-blue-400'
-                              }`}
-                              style={{
-                                height: `calc(${agendamento.duration_minutes / 30 * 2}rem - 1px)`,
-                                zIndex: 10
-                              }}
-                              onClick={(e) => { // Modificado para não propagar e abrir visualização/cadastro
-                                e.stopPropagation(); // Impedir que o clique no agendamento abra o modal de novo agendamento
-                                if (agendamento.patient_is_fully_registered === false) {
-                                  navigate(`/cadastro/${agendamento.patient_id}`);
-                                } else {
-                                  navigate(`/visualizar/${agendamento.patient_id}`);
-                                }
-                              }}
-                            >
-                              <div className="flex items-center h-full space-x-1 w-full overflow-hidden">
-                                <span className={`w-2 h-2 rounded-full ${
-                                  agendamento.patient_is_fully_registered === false ? 'bg-red-600' : 'bg-blue-600'
-                                } flex-shrink-0`}></span>
-                                <span className="font-medium truncate flex-1 text-sm text-gray-700">
-                                  {agendamento.patient_name}
-                                </span>
-                                <div className="absolute top-0.5 right-0.5 flex flex-col space-y-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-4 w-4 p-0 hover:bg-blue-100 rounded-sm"
-                                    title="Editar agendamento"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      navigate(`/agendamentos/editar/${agendamento.id}`);
-                                    }}
-                                  >
-                                    <Edit className="h-2.5 w-2.5 text-blue-700" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-4 w-4 p-0 hover:bg-red-100 rounded-sm"
-                                    title="Excluir agendamento"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      excluirAgendamento(agendamento.id);
-                                    }}
-                                  >
-                                    <Trash2 className="h-2.5 w-2.5 text-red-700" />
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          )
-                        ))}
-                      </div>
-                    );
-                  })}
+              {semanaAtualVisivel.map((dia) => (
+                <div key={dia.toISOString()} className="p-2 text-center border-r h-10 flex items-center justify-center">
+                  <span className="text-lg font-medium">{dia.getDate()}</span>
+                  <span className="text-xs text-gray-600 ml-1">- {diasDaSemanaNomes[dia.getDay()]}</span>
                 </div>
               ))}
             </div>
           </div>
-        )}
-      </CardContent>
-    </Card>
+
+          {calendarLoading ? (
+            <div className="p-8 text-center text-gray-500 flex-1">Carregando agendamentos...</div>
+          ) : (
+            <div className="flex flex-1 overflow-y-auto overflow-x-hidden"> {/* Main scrollable area */}
+              <div className="w-16 sticky left-0 bg-gray-50 z-20 border-r border-gray-300 flex-shrink-0"> {/* Time labels */}
+                {HORARIOS_DO_DIA.map(horario => (
+                  <div key={horario} className="h-8 flex items-center justify-start px-2 text-xs text-gray-600 border-b border-gray-200">
+                    {horario}
+                  </div>
+                ))}
+              </div>
+              <div className="flex-1 grid grid-cols-7"> {/* Day columns */}
+                {semanaAtualVisivel.map((dia) => (
+                  <div key={dia.toISOString()} className="border-r border-gray-300 flex flex-col relative"> {/* Each Day Column */}
+                    {HORARIOS_DO_DIA.map(horario => {
+                      const slotId = `${dia.toISOString().split('T')[0]}_${horario}`;
+                      const agendamentosNoSlot = agendamentosPorDiaEHora[dia.toISOString().split('T')[0]]?.[horario] || [];
+
+                      return (
+                        <DroppableSlot
+                          key={slotId}
+                          id={slotId}
+                          className="h-8 border-b border-gray-200 relative hover:bg-blue-50 transition-colors"
+                          onSlotClick={() => {
+                            // Only allow creating new appointment if not currently dragging something
+                            if (!activeId) {
+                              onSlotClick(dia, horario);
+                            }
+                          }}
+                          isOver={currentOverSlot === slotId && activeId?.startsWith('appointment_')}
+                        >
+                          {/* Render only the first appointment that STARTS in this slot */}
+                          {agendamentosNoSlot.map((agendamento, idxAg) => (
+                            idxAg === 0 && ( // Ensure we only try to render one draggable item per starting slot visually
+                              <DraggableAppointmentItem
+                                key={agendamento.id}
+                                agendamento={agendamento}
+                                navigate={navigate}
+                                excluirAgendamento={excluirAgendamento}
+                                onAppointmentUpdate={handleAppointmentUpdate}
+                              />
+                            )
+                          ))}
+                        </DroppableSlot>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      <DragOverlay dropAnimation={null}>
+        {activeId && activeId.startsWith('appointment_') && draggedAppointmentData ? (
+          <AppointmentCard
+            agendamento={draggedAppointmentData}
+            isDragging={true}
+            isOverlay={true} // Mark that this is for the overlay
+            navigate={navigate}
+            excluirAgendamento={excluirAgendamento}
+            onAppointmentUpdate={handleAppointmentUpdate} // Pass to overlay as well, though it won't be used for resizing
+          />
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 };
 
