@@ -112,21 +112,26 @@ function App() {
           />
 
           {/* Rotas Protegidas */}
-          <Route element={<ProtectedRoute />}> {/* Layout para rotas autenticadas */}
-            <Route path="/dashboard" element={<Dashboard />} /> {/* Dashboard agora recebe currentUser e handleLogout via Outlet context */}
-            <Route path="/cadastro-paciente" element={<CadastroPaciente />} /> {/* Renomeado */}
-            <Route path="/cadastro-paciente/:id" element={<CadastroPaciente />} /> {/* Renomeado */}
-            <Route path="/visualizar-paciente/:id" element={<VisualizarPaciente />} /> {/* Renomeado */}
-            <Route path="/consulta-pacientes" element={<ConsultaPacientes />} /> {/* Renomeado */}
+          <Route element={<ProtectedRoute />}>
+            <Route
+              path="/dashboard"
+              element={<Dashboard currentUser={currentUser} onLogout={handleLogout} />}
+            />
+            {/* As demais rotas que usam Outlet context para currentUser e handleLogout permanecem como estão se essa for a intenção */}
+            {/* Se elas não usam useOutletContext, podem ser rotas simples dentro de ProtectedRoute */}
+            <Route path="/cadastro-paciente" element={<CadastroPaciente />} />
+            <Route path="/cadastro-paciente/:id" element={<CadastroPaciente />} />
+            <Route path="/visualizar-paciente/:id" element={<VisualizarPaciente />} />
+            <Route path="/consulta-pacientes" element={<ConsultaPacientes />} />
             <Route path="/orcamento" element={<Orcamento />} />
-            <Route path="/agendamento" element={<Agendamento />} />
+            <Route path="/agendamento" element={<Agendamento />} /> {/* Agendamento usa useOutletContext */}
             <Route path="/agendamentos/editar/:idAgendamento" element={<EditarAgendamento />} />
-            <Route path="/historico" element={<HistoricoPaciente />} />
+            <Route path="/historico" element={<HistoricoPaciente />} />  {/* HistoricoPaciente usa useOutletContext */}
             <Route path="/relatorios" element={<Relatorios />} />
 
-            {/* Rotas de Admin aninhadas sob /admin */}
+            {/* Rotas de Admin */}
             <Route path="/admin" element={<AdminRoute><AdminPanel /></AdminRoute>} />
-            <Route path="/admin/gerenciar-usuarios" element={<AdminRoute><GerenciarDentistas /></AdminRoute>} /> {/* Ajustar nome do componente */}
+            <Route path="/admin/gerenciar-usuarios" element={<AdminRoute><GerenciarDentistas /></AdminRoute>} />
             <Route path="/admin/cadastrar-usuario" element={<AdminRoute><CadastroUsuario /></AdminRoute>} />
             <Route path="/admin/alterar-senha" element={<AdminRoute><AlterarSenhaAdmin /></AdminRoute>} />
             <Route path="/admin/tabela-precos" element={<AdminRoute><TabelaPrecosAdmin /></AdminRoute>} />
