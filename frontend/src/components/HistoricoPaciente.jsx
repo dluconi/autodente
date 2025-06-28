@@ -50,7 +50,7 @@ const HistoricoPaciente = () => {
 
   const fetchPatients = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/patients`)
+      const response = await fetch(`${API_URL}/patients`)
       const data = await response.json()
       setPatients(data)
       setFilteredPatients(data)
@@ -63,7 +63,7 @@ const HistoricoPaciente = () => {
 
   const fetchPatientHistories = async (patientId) => {
     try {
-      const response = await fetch(`${API_URL}/api/historico/patient/${patientId}`)
+      const response = await fetch(`${API_URL}/historico/patient/${patientId}`)
       if (response.ok) {
         const data = await response.json()
 	setPatientHistories(data.historicos || [])
@@ -150,13 +150,13 @@ const HistoricoPaciente = () => {
       let response
       if (editingHistory) {
         // Atualizar histórico existente
-        response = await fetch(`${API_URL}/api/historico/${editingHistory.id}`, {
+        response = await fetch(`${API_URL}/historico/${editingHistory.id}`, {
           method: 'PUT',
           body: formData
         })
       } else {
         // Criar novo histórico
-        response = await fetch(`${API_URL}/api/historico`, {
+        response = await fetch(`${API_URL}/historico`, {
           method: 'POST',
           body: formData
         })

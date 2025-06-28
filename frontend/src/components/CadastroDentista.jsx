@@ -84,7 +84,7 @@ const CadastroDentista = () => {
   const fetchPatient = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`${API_URL}/api/patients/${id}`)
+      const response = await fetch(`${API_URL}/patients/${id}`)
       const data = await response.json()
       
       if (data.success) {
@@ -117,7 +117,7 @@ const CadastroDentista = () => {
     setMessage('')
 
     try {
-      const url = isEditing ? `${API_URL}/api/patients/${id}` : `${API_URL}/api/patients`
+      const url = isEditing ? `${API_URL}/patients/${id}` : `${API_URL}/patients`
       const method = isEditing ? 'PUT' : 'POST'
       
       const response = await fetch(url, {    

@@ -95,7 +95,7 @@ const Orcamento = () => {
 
   const fetchPatients = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/patients`)
+      const response = await fetch(`${API_URL}/patients`)
       const data = await response.json()
       setPatients(data)
     } catch (err) {
@@ -194,7 +194,7 @@ const Orcamento = () => {
         procedures: formData.procedimentos
       }
 
-      const response = await fetch(`${API_URL}/api/budgets`, {
+      const response = await fetch(`${API_URL}/budgets`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -253,7 +253,7 @@ const Orcamento = () => {
         procedures: formData.procedimentos
       }
 
-      const response = await fetch(`${API_URL}/api/budgets`, {
+      const response = await fetch(`${API_URL}/budgets`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -265,7 +265,7 @@ const Orcamento = () => {
 
       if (result.success) {
         // Aprovar o orçamento
-        const approveResponse = await fetch(`${API_URL}/api/budgets/${result.budget.id}/approve`, {
+        const approveResponse = await fetch(`${API_URL}/budgets/${result.budget.id}/approve`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

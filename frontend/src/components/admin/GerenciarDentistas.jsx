@@ -42,7 +42,7 @@ const GerenciarDentistas = () => {
   const fetchDentistas = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/dentists`);
+      const response = await fetch(`${API_URL}/dentists`);
       if (!response.ok) {
         throw new Error('Falha ao buscar dentistas');
       }
@@ -87,7 +87,7 @@ const GerenciarDentistas = () => {
     if (!dentistaToDelete) return;
     setLoading(true); // Para feedback visual, pode ser um loading específico para a linha
     try {
-      const response = await fetch(`${API_URL}/api/dentists/${dentistaToDelete.id}`, { method: 'DELETE' });
+      const response = await fetch(`${API_URL}/dentists/${dentistaToDelete.id}`, { method: 'DELETE' });
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Erro desconhecido.'}));
         throw new Error(errorData.message || 'Falha ao excluir dentista');
@@ -111,7 +111,7 @@ const GerenciarDentistas = () => {
     // setDentistas(dentistas.map(d => d.id === dentista.id ? {...d, status_dentista: newStatus} : d));
 
     try {
-      const response = await fetch(`${API_URL}/api/dentists/${dentista.id}`, {
+      const response = await fetch(`${API_URL}/dentists/${dentista.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         // Enviar apenas o campo status para atualização parcial, se o backend suportar

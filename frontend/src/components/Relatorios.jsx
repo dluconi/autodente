@@ -88,7 +88,7 @@ const Relatorios = () => {
   const fetchPacientes = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/dentists`);
+      const response = await fetch(`${API_URL}/dentists`);
       const data = await response.json();
       setPacientes(data);
     } catch (error) {

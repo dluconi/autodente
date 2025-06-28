@@ -31,7 +31,7 @@ const VisualizarPaciente = () => {
 
   const fetchPatient = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/patients/${id}`)
+      const response = await fetch(`${API_URL}/patients/${id}`)
       const data = await response.json()
       
       if (data.success) {
@@ -48,7 +48,7 @@ const VisualizarPaciente = () => {
 
   const fetchBudgets = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/budgets/patient/${id}`)
+      const response = await fetch(`${API_URL}/budgets/patient/${id}`)
       const data = await response.json()
       
       if (data.success) {
@@ -61,7 +61,7 @@ const VisualizarPaciente = () => {
 
   const fetchHistoricos = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/historico/patient/${id}`)
+      const response = await fetch(`${API_URL}/historico/patient/${id}`)
       const data = await response.json()
       
       if (data.success) {
@@ -108,7 +108,7 @@ const VisualizarPaciente = () => {
         formData.append('arquivo', selectedFile)
       }
 
-      const response = await fetch(`${API_URL}/api/historico`, {
+      const response = await fetch(`${API_URL}/historico`, {
         method: 'POST',
         body: formData
       })
@@ -141,7 +141,7 @@ const VisualizarPaciente = () => {
   const handleDeleteHistorico = async (historicoId) => {
     if (window.confirm('Tem certeza que deseja excluir este histórico?')) {
       try {
-        const response = await fetch(`${API_URL}/api/historico/${historicoId}`, {
+        const response = await fetch(`${API_URL}/historico/${historicoId}`, {
           method: 'DELETE',
         })
         

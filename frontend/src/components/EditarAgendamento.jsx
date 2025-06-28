@@ -44,7 +44,7 @@ const EditarAgendamento = () => {
       setIsFetching(true);
       setMessage('');
       try {
-        const response = await fetch(`${API_URL}/api/appointments/${idAgendamento}`);
+        const response = await fetch(`${API_URL}/appointments/${idAgendamento}`);
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({ message: 'Erro ao buscar dados do agendamento.' }));
           throw new Error(errorData.message || `Erro HTTP: ${response.status}`);
@@ -102,7 +102,7 @@ const EditarAgendamento = () => {
     };
 
     try {
-      const response = await fetch(`${API_URL}/api/appointments/${idAgendamento}`, {
+      const response = await fetch(`${API_URL}/appointments/${idAgendamento}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

@@ -39,7 +39,7 @@ const ConsultaDentistas = () => {
 
   const fetchPatients = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/patients`);    
+      const response = await fetch(`${API_URL}/patients`);    
       const data = await response.json()
       setPatients(data)
       setFilteredPatients(data)
@@ -53,7 +53,7 @@ const ConsultaDentistas = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Tem certeza que deseja excluir este paciente?')) {
       try {
-        const response = await fetch(`${API_URL}/api/patients/${id}`, {
+        const response = await fetch(`${API_URL}/patients/${id}`, {
           method: 'DELETE',
         })
         

@@ -58,7 +58,7 @@ const Agendamento = () => {
 
   // Efeito para carregar pacientes
   useEffect(() => {
-    fetch(`${API_URL}/api/patients`)
+    fetch(`${API_URL}/patients`)
       .then(response => response.json())
       .then(data => {
         setPacientes(data);
@@ -116,7 +116,7 @@ const Agendamento = () => {
     }
 
     try {
-      const response = await fetch(`${API_URL}/api/appointments`, {
+      const response = await fetch(`${API_URL}/appointments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -381,7 +381,7 @@ const HORARIOS_DO_DIA = (() => {
 const updateAppointmentOnBackend = async (id, newDate, newTime, durationMinutes, patientId, observacao) => {
   console.log(`Updating appointment ${id} to ${newDate} ${newTime}, duration ${durationMinutes} min`);
   try {
-    const response = await fetch(`${API_URL}/api/appointments/${id}`, {
+    const response = await fetch(`${API_URL}/appointments/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -649,7 +649,7 @@ const CalendarioAgendamentos = ({ onSlotClick }) => {
   const fetchCalendarAppointments = async () => {
     try {
       setCalendarLoading(true);
-      const response = await fetch(`${API_URL}/api/appointments`);
+      const response = await fetch(`${API_URL}/appointments`);
       const data = await response.json();
       setCalendarAppointments(data || []);
     } catch (error) {
@@ -866,7 +866,7 @@ const CalendarioAgendamentos = ({ onSlotClick }) => {
   const excluirAgendamento = async (agendamentoId) => {
     if (window.confirm('Tem certeza que deseja excluir este agendamento?')) {
       try {
-        const response = await fetch(`${API_URL}/api/appointments/${agendamentoId}`, {
+        const response = await fetch(`${API_URL}/appointments/${agendamentoId}`, {
           method: 'DELETE',
         });
         if (response.ok) {

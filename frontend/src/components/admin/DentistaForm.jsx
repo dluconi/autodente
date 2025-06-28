@@ -79,7 +79,7 @@ const DentistaForm = ({ open, onOpenChange, dentista, onSubmitSuccess }) => {
 
   const processSubmit = async (data) => {
     try {
-      const url = dentista ? `${API_URL}/api/dentists/${dentista.id}` : `${API_URL}/api/dentists`;
+      const url = dentista ? `${API_URL}/dentists/${dentista.id}` : `${API_URL}/dentists`;
       const method = dentista ? 'PUT' : 'POST';
 
       // Garantir que todos os campos do schema sejam enviados, mesmo que vazios (se permitido pelo backend)

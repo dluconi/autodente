@@ -24,7 +24,7 @@ const Agendamento = () => {
 
   useEffect(() => {
     // Carregar lista de pacientes
-    fetch(`${API_URL}/api/patients`)
+    fetch(`${API_URL}/patients`)
       .then(response => response.json())
       .then(data => {
         setPacientes(data);
@@ -85,7 +85,7 @@ const Agendamento = () => {
 
 
     try {
-      const response = await fetch(`${API_URL}/api/appointments`, {
+      const response = await fetch(`${API_URL}/appointments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -430,7 +430,7 @@ const HORARIOS_DO_DIA = (() => {
     try {
       setCalendarLoading(true);
       // Simular carregamento de agendamentos
-      const response = await fetch(`${API_URL}/api/appointments`);
+      const response = await fetch(`${API_URL}/appointments`);
       const data = await response.json();
       setCalendarAppointments(data || []);
     } catch (error) {
@@ -444,7 +444,7 @@ const HORARIOS_DO_DIA = (() => {
   const excluirAgendamento = async (agendamentoId) => {
     if (window.confirm('Tem certeza que deseja excluir este agendamento?')) {
       try {
-        const response = await fetch(`${API_URL}/api/appointments/${agendamentoId}`, {
+        const response = await fetch(`${API_URL}/appointments/${agendamentoId}`, {
           method: 'DELETE',
         });
 
