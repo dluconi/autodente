@@ -4,11 +4,11 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Stethoscope, User, Lock } from 'lucide-react';
+import { Stethoscope, Mail, Lock } from 'lucide-react'; // Alterado User para Mail
 import API_URL from '../lib/api';
 
-const Login = ({ onLogin }) => {
-  const [username, setUsername] = useState('');
+const Login = ({ onLoginSuccess }) => { // Renomeado onLogin para onLoginSuccess
+  const [email, setEmail] = useState(''); // Alterado username para email
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,24 +18,31 @@ const Login = ({ onLogin }) => {
     setLoading(true);
     setError('');
 
+    if (!email || !password) {
+      setError('Email e senha são obrigatórios.');
+      setLoading(false);
+      return;
+    }
+
     try {
       const response = await fetch(`${API_URL}/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }), // Alterado username para email
       });
 
       const data = await response.json();
 
-      if (data.success) {
-        onLogin(data);  // <<< Agora passando o retorno do backend
+      if (response.ok && data.success) {
+        onLoginSuccess(data.token, data.user); // Passa token e dados do usuário
       } else {
-        setError(data.message || 'Erro ao fazer login');
+        setError(data.message || `Erro ${response.status}: Falha ao fazer login`);
       }
     } catch (err) {
-      setError('Erro de conexão com o servidor');
+      console.error("Login error:", err);
+      setError('Erro de conexão ou ao processar a resposta do servidor.');
     } finally {
       setLoading(false);
     }
@@ -57,23 +64,23 @@ const Login = ({ onLogin }) => {
             Endodontista
           </CardDescription>
           <CardDescription className="text-sm text-gray-600">
-            Sistema de Cadastro de Pacientes
+            Sistema de Gerenciamento Odontológico
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username" className="text-sm font-medium text-gray-700">
-                Usuário
+              <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+                Email
               </Label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  id="username"
-                  type="text"
-                  placeholder="Digite seu usuário"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  id="email"
+                  type="email" // Alterado type para email
+                  placeholder="seuemail@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="pl-10"
                   required
                 />
@@ -109,10 +116,12 @@ const Login = ({ onLogin }) => {
               {loading ? 'Entrando...' : 'Entrar'}
             </Button>
           </form>
+          {/* Comentado ou removido, pois o admin padrão agora é criado no backend
           <div className="mt-6 text-center text-xs text-gray-500">
-            <p>Usuário padrão: admin</p>
-            <p>Senha padrão: admin</p>
+            <p>Usuário padrão: admin@example.com</p>
+            <p>Senha padrão: admin123</p>
           </div>
+          */}
         </CardContent>
       </Card>
     </div>

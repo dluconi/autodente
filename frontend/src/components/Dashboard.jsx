@@ -1,56 +1,18 @@
-import { Link } from 'react-router-dom'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Stethoscope, UserPlus, Users, FileText, Home, Calendar, LogOut, BarChart } from 'lucide-react' // Adicionado BarChart, removido CalendarDays
-// import { useState, useEffect } from 'react' // Removido useState e useEffect não utilizados
-// import API_URL from '../lib/api'; // Removido API_URL não utilizado
+import { Link, useOutletContext } from 'react-router-dom'; // Adicionado useOutletContext
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import {
+  Stethoscope, UserPlus, Users, FileText, Home, Calendar, LogOut, BarChart,
+  DollarSign, ShieldCheck, UserCog // Adicionando ícones para admin
+} from 'lucide-react';
+import AdminButton from './AdminButton'; // Importar AdminButton
 
-const Dashboard = ({ onLogout }) => {
-  // const [appointmentsToday, setAppointmentsToday] = useState([]) // Removido estado
-  // const [appointmentsTomorrow, setAppointmentsTomorrow] = useState([]) // Removido estado
-  // const [totalPatients, setTotalPatients] = useState(0) // Removido estado, pode ser adicionado de volta se necessário para outras features
-  // const [todayRegistrations, setTodayRegistrations] = useState(0) // Removido estado, pode ser adicionado de volta se necessário para outras features
-  // const [loading, setLoading] = useState(true) // Removido estado
+const Dashboard = () => {
+  const { currentUser, handleLogout } = useOutletContext(); // Obter currentUser e handleLogout do contexto
 
-  // useEffect(() => { // Removido useEffect
-  //   fetchDashboardData()
-  // }, [])
+  const nomeUsuario = currentUser?.nome || 'Usuário';
+  const perfilUsuario = currentUser?.perfil || 'desconhecido';
 
-  // const fetchDashboardData = async () => { // Removida função fetchDashboardData
-  //   const cleanedApiUrl = API_URL.replace(/\/$/, "");
-  //   try {
-  //     // Buscar agendamentos de hoje
-  //     const todayResponse = await fetch(`${cleanedApiUrl}/appointments/today`)
-  //     const todayData = await todayResponse.json()
-  //     setAppointmentsToday(todayData)
-
-  //     // Buscar agendamentos de amanhã
-  //     const tomorrowResponse = await fetch(`${cleanedApiUrl}/appointments/tomorrow`)
-  //     const tomorrowData = await tomorrowResponse.json()
-  //     setAppointmentsTomorrow(tomorrowData)
-
-  //     // Buscar total de pacientes
-  //     const patientsResponse = await fetch(`${cleanedApiUrl}/dentists`)
-  //     const patientsData = await patientsResponse.json()
-  //     setTotalPatients(patientsData.length)
-
-  //     // Calcular cadastros de hoje
-  //     const today = new Date().toISOString().split('T')[0]
-  //     const todayRegs = patientsData.filter(patient =>
-  //       patient.created_at && patient.created_at.startsWith(today)
-  //     ).length
-  //     setTodayRegistrations(todayRegs)
-
-  //   } catch (error) {
-  //     console.error('Erro ao carregar dados do dashboard:', error)
-  //   } finally {
-  //     setLoading(false)
-  //   }
-  // }
-
-  // const formatTime = (time) => { // Removida função formatTime
-  //   return time.substring(0, 5)
-  // }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -62,8 +24,11 @@ const Dashboard = ({ onLogout }) => {
                 <Stethoscope className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-800">Dr. Lucca Spinelli</h1>
-                <p className="text-sm text-blue-600 font-medium">Endodontista</p>
+                {/* TODO: Nome da clínica ou nome do Admin/Dentista logado */}
+                <h1 className="text-xl font-bold text-gray-800">Bem-vindo(a), {nomeUsuario}!</h1>
+                <p className="text-sm text-blue-600 font-medium">
+                  Perfil: {perfilUsuario.charAt(0).toUpperCase() + perfilUsuario.slice(1)}
+                </p>
               </div>
             </div>
             <nav className="flex items-center space-x-4">
@@ -73,14 +38,18 @@ const Dashboard = ({ onLogout }) => {
                   <span>Início</span>
                 </Button>
               </Link>
+              {/* Botão Admin visível apenas para admins */}
+              {currentUser && currentUser.perfil === 'admin' && (
+                <AdminButton />
+              )}
               <Button 
                 variant="ghost" 
                 size="sm" 
                 className="flex items-center space-x-2 text-red-600 hover:text-red-700 hover:bg-red-50"
-                onClick={onLogout}
+                onClick={handleLogout} // Usar handleLogout do contexto
               >
                 <LogOut className="h-4 w-4" />
-                <span>Logoff</span>
+                <span>Sair</span>
               </Button>
             </nav>
           </div>
@@ -89,14 +58,14 @@ const Dashboard = ({ onLogout }) => {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-800 mb-2">Gestão Odontológica</h2>
-          <p className="text-gray-600">Cadastre, organize e acompanhe seus pacientes com eficiência em um painel pensado para dentistas.</p>
+          <h2 className="text-3xl font-bold text-gray-800 mb-2">Painel de Controle</h2>
+          <p className="text-gray-600">Acesse as funcionalidades do sistema de forma rápida e organizada.</p>
         </div>
 
-        {/* Módulos do Sistema - Ajustado para melhor centralização e responsividade */}
+        {/* Módulos do Sistema */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 max-w-5xl mx-auto">
-          {/* Novo Cadastro */}
-          <Link to="/cadastro" className="flex">
+          {/* Novo Cadastro de Paciente */}
+          <Link to="/cadastro-paciente" className="flex"> {/* Rota atualizada */}
             <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-green-500 w-full flex flex-col">
               <CardHeader className="pb-3">
                 <div className="flex items-center space-x-3">
@@ -104,7 +73,7 @@ const Dashboard = ({ onLogout }) => {
                     <UserPlus className="h-6 w-6 text-green-600" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg text-gray-800">Novo Cadastro</CardTitle>
+                    <CardTitle className="text-lg text-gray-800">Novo Paciente</CardTitle>
                     <CardDescription>Cadastrar novo paciente</CardDescription>
                   </div>
                 </div>
@@ -118,7 +87,7 @@ const Dashboard = ({ onLogout }) => {
           </Link>
 
           {/* Consultar Pacientes */}
-          <Link to="/consulta" className="flex">
+          <Link to="/consulta-pacientes" className="flex"> {/* Rota atualizada */}
             <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-blue-500 w-full flex flex-col">
               <CardHeader className="pb-3">
                 <div className="flex items-center space-x-3">
@@ -167,7 +136,7 @@ const Dashboard = ({ onLogout }) => {
               <CardHeader className="pb-3">
                 <div className="flex items-center space-x-3">
                   <div className="bg-orange-100 p-2 rounded-full">
-                    <FileText className="h-6 w-6 text-orange-600" />
+                    <DollarSign className="h-6 w-6 text-orange-600" /> {/* Ícone atualizado */}
                   </div>
                   <div>
                     <CardTitle className="text-lg text-gray-800">Orçamento</CardTitle>
@@ -177,7 +146,7 @@ const Dashboard = ({ onLogout }) => {
               </CardHeader>
               <CardContent className="flex-grow">
                 <p className="text-sm text-gray-600">
-                  Crie orçamentos detalhados com procedimentos e formas de pagamento.
+                  Crie orçamentos detalhados com procedimentos e valores.
                 </p>
               </CardContent>
             </Card>
@@ -192,14 +161,14 @@ const Dashboard = ({ onLogout }) => {
                     <Calendar className="h-6 w-6 text-purple-600" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg text-gray-800">Agendamento</CardTitle>
-                    <CardDescription>Agendar consultas</CardDescription>
+                    <CardTitle className="text-lg text-gray-800">Agenda</CardTitle> {/* Simplificado */}
+                    <CardDescription>Gerenciar agendamentos</CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="flex-grow">
                 <p className="text-sm text-gray-600">
-                  Agende consultas para pacientes existentes ou faça pré-cadastro.
+                  Visualize e gerencie sua agenda de consultas.
                 </p>
               </CardContent>
             </Card>
@@ -226,14 +195,60 @@ const Dashboard = ({ onLogout }) => {
               </CardContent>
             </Card>
           </Link>
+
+          {/* Módulos de Admin - Visíveis apenas para perfil 'admin' */}
+          {currentUser && currentUser.perfil === 'admin' && (
+            <>
+              {/* Aprovações de Pagamento */}
+              <Link to="/admin/aprovacoes" className="flex">
+                <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-red-500 w-full flex flex-col">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center space-x-3">
+                      <div className="bg-red-100 p-2 rounded-full">
+                        <ShieldCheck className="h-6 w-6 text-red-600" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-lg text-gray-800">Aprovar Pagamentos</CardTitle>
+                        <CardDescription>Gerenciar pagamentos pendentes</CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="flex-grow">
+                    <p className="text-sm text-gray-600">
+                      Aprove ou rejeite pagamentos registrados pelos dentistas.
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
+
+              {/* Cadastrar Usuário (Dentista/Admin) */}
+              <Link to="/admin/cadastrar-usuario" className="flex">
+                <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-indigo-500 w-full flex flex-col">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center space-x-3">
+                      <div className="bg-indigo-100 p-2 rounded-full">
+                        <UserCog className="h-6 w-6 text-indigo-600" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-lg text-gray-800">Cadastrar Usuário</CardTitle>
+                        <CardDescription>Adicionar dentistas ou admins</CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="flex-grow">
+                    <p className="text-sm text-gray-600">
+                      Crie novas contas de usuário para o sistema.
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
+            </>
+          )}
         </div>
-
-        {/* Dashboards de Agendamentos removidos */}
-
       </main>
     </div>
   )
 }
 
-export default Dashboard
+export default Dashboard;
 
