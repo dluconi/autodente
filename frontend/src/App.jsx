@@ -1,40 +1,106 @@
-import { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
-import CadastroDentista from './components/CadastroDentista';
-import ConsultaDentistas from './components/ConsultaDentistas';
+import CadastroPaciente from './components/CadastroDentista'; // Renomear para CadastroPaciente
+import ConsultaPacientes from './components/ConsultaDentistas'; // Renomear para ConsultaPacientes
 import VisualizarPaciente from './components/VisualizarPaciente';
 import HistoricoPaciente from './components/HistoricoPaciente';
 import Orcamento from './components/Orcamento';
 import Agendamento from './components/Agendamento';
-import EditarAgendamento from './components/EditarAgendamento'; // Correto!
-import Relatorios from './components/Relatorios'; // Adicionar importação
-import AdminButton from './components/AdminButton'; // Importar AdminButton
-import AdminPanel from './components/AdminPanel'; // Importar AdminPanel
-import GerenciarDentistas from './components/admin/GerenciarDentistas'; // Importar GerenciarDentistas
-import AlterarSenhaAdmin from './components/admin/AlterarSenhaAdmin'; // Importar AlterarSenhaAdmin
-import TabelaPrecosAdmin from './components/admin/TabelaPrecosAdmin'; // Importar TabelaPrecosAdmin
-import { Toaster } from '@/components/ui/sonner'; // Importar Toaster
+import EditarAgendamento from './components/EditarAgendamento';
+import Relatorios from './components/Relatorios';
+// import AdminButton from './components/AdminButton'; // Será condicionalmente renderizado ou parte do Layout
+import AdminPanel from './components/AdminPanel';
+import GerenciarDentistas from './components/admin/GerenciarDentistas'; // Será GerenciarUsuarios
+import AlterarSenhaAdmin from './components/admin/AlterarSenhaAdmin'; // Pode ser uma funcionalidade de perfil
+import TabelaPrecosAdmin from './components/admin/TabelaPrecosAdmin';
+import AprovacoesPagamento from './components/admin/AprovacoesPagamento'; // Novo componente
+import CadastroUsuario from './components/admin/CadastroUsuario'; // Novo para cadastrar dentistas/admins
+import { Toaster } from '@/components/ui/sonner';
 import './App.css';
+import API_URL from './lib/api'; // Para chamadas à API
+
+// Função para decodificar JWT (simplificada, use uma lib como jwt-decode em produção)
+function parseJwt(token) {
+  try {
+    return JSON.parse(atob(token.split('.')[1]));
+  } catch (e) {
+    return null;
+  }
+}
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem('isAuthenticated') === 'true';
-  });
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loadingAuth, setLoadingAuth] = useState(true);
+
+  const fetchUserProfile = useCallback(async (token) => {
+    // Em um cenário real, você poderia ter um endpoint /api/me para validar o token e pegar dados do usuário
+    // Por agora, vamos decodificar o token para pegar o perfil.
+    const decodedToken = parseJwt(token);
+    if (decodedToken && decodedToken.user_id) {
+      // Simulando a busca dos dados completos do usuário se necessário, ou usando o que já vem no token
+      // Aqui, estamos assumindo que o login já retorna 'user' com 'id' e 'perfil'
+      // Se o token só tiver user_id, você faria um fetch aqui:
+      // const response = await fetch(`${API_URL}/usuarios/${decodedToken.user_id}`, { headers: {'x-access-token': token}});
+      // const userData = await response.json();
+      // setCurrentUser(userData.data); // Ajuste conforme a estrutura da sua API
+
+      // Por enquanto, vamos usar o que o backend já envia no /login ou o que está no token
+      // A rota /login já retorna o 'user' object, vamos armazená-lo diretamente
+      const storedUser = localStorage.getItem('currentUser');
+      if (storedUser) {
+        setCurrentUser(JSON.parse(storedUser));
+      } else if (decodedToken.perfil) { // Se o perfil estiver no token
+         setCurrentUser({id: decodedToken.user_id, perfil: decodedToken.perfil, nome: decodedToken.nome || 'Usuário'});
+      }
+    }
+    setLoadingAuth(false);
+  }, []);
+
 
   useEffect(() => {
-    localStorage.setItem('isAuthenticated', isAuthenticated.toString());
-  }, [isAuthenticated]);
+    const token = localStorage.getItem('token');
+    if (token) {
+      fetchUserProfile(token);
+    } else {
+      setLoadingAuth(false);
+    }
+  }, [fetchUserProfile]);
 
-  const handleLogin = () => {
-    setIsAuthenticated(true);
+  const handleLoginSuccess = (token, user) => {
+    localStorage.setItem('token', token);
+    localStorage.setItem('currentUser', JSON.stringify(user)); // Armazena dados do usuário
+    setCurrentUser(user);
   };
 
   const handleLogout = () => {
-    setIsAuthenticated(false);
-    localStorage.removeItem('isAuthenticated');
+    localStorage.removeItem('token');
+    localStorage.removeItem('currentUser');
+    setCurrentUser(null);
   };
+
+  if (loadingAuth) {
+    return <div>Carregando autenticação...</div>; // Ou um spinner/loader
+  }
+
+  // Componente de Rota Protegida
+  const ProtectedRoute = ({ children, requiredRole }) => {
+    if (!currentUser) {
+      return <Navigate to="/login" replace />;
+    }
+    if (requiredRole && currentUser.perfil !== requiredRole) {
+      // Se um perfil específico é requerido e o usuário não o tem
+      return <Navigate to="/dashboard" replace />; // Ou para uma página de "acesso negado"
+    }
+    return children ? children : <Outlet context={{ currentUser, handleLogout }} />; // Passa currentUser e handleLogout para rotas aninhadas
+  };
+
+  // Componente de Rota Específica para Admin
+  const AdminRoute = ({ children }) => {
+    return <ProtectedRoute requiredRole="admin">{children}</ProtectedRoute>;
+  };
+
 
   return (
     <Router>
@@ -42,68 +108,37 @@ function App() {
         <Routes>
           <Route 
             path="/login" 
-            element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login onLogin={handleLogin} />}
+            element={currentUser ? <Navigate to="/dashboard" replace /> : <Login onLoginSuccess={handleLoginSuccess} />}
           />
-          <Route 
-            path="/dashboard" 
-            element={isAuthenticated ? <Dashboard onLogout={handleLogout} /> : <Navigate to="/login" replace />}
-          />
-          <Route 
-            path="/cadastro" 
-            element={isAuthenticated ? <CadastroDentista /> : <Navigate to="/login" replace />}
-          />
-          <Route 
-            path="/cadastro/:id" 
-            element={isAuthenticated ? <CadastroDentista /> : <Navigate to="/login" replace />}
-          />
-          <Route 
-            path="/visualizar/:id" 
-            element={isAuthenticated ? <VisualizarPaciente /> : <Navigate to="/login" replace />}
-          />
-          <Route 
-            path="/consulta" 
-            element={isAuthenticated ? <ConsultaDentistas /> : <Navigate to="/login" replace />}
-          />
-          <Route 
-            path="/orcamento" 
-            element={isAuthenticated ? <Orcamento /> : <Navigate to="/login" replace />}
-          />
-          <Route 
-            path="/agendamento" 
-            element={isAuthenticated ? <Agendamento /> : <Navigate to="/login" replace />}
-          />
-          <Route 
-            path="/agendamentos/editar/:idAgendamento" // Correto!
-            element={isAuthenticated ? <EditarAgendamento /> : <Navigate to="/login" replace />}
-          />
-          <Route 
-            path="/historico" 
-            element={isAuthenticated ? <HistoricoPaciente /> : <Navigate to="/login" replace />}
-          />
-          <Route
-            path="/relatorios"
-            element={isAuthenticated ? <Relatorios /> : <Navigate to="/login" replace />}
-          />
-          <Route
-            path="/admin"
-            element={isAuthenticated ? <AdminPanel /> : <Navigate to="/login" replace />}
-          />
-          <Route
-            path="/admin/dentistas"
-            element={isAuthenticated ? <GerenciarDentistas /> : <Navigate to="/login" replace />}
-          />
-          <Route
-            path="/admin/alterar-senha"
-            element={isAuthenticated ? <AlterarSenhaAdmin /> : <Navigate to="/login" replace />}
-          />
-          <Route
-            path="/admin/tabela-precos"
-            element={isAuthenticated ? <TabelaPrecosAdmin /> : <Navigate to="/login" replace />}
-          />
-          <Route path="/" element={<Navigate to="/login" replace />} />
+
+          {/* Rotas Protegidas */}
+          <Route element={<ProtectedRoute />}> {/* Layout para rotas autenticadas */}
+            <Route path="/dashboard" element={<Dashboard />} /> {/* Dashboard agora recebe currentUser e handleLogout via Outlet context */}
+            <Route path="/cadastro-paciente" element={<CadastroPaciente />} /> {/* Renomeado */}
+            <Route path="/cadastro-paciente/:id" element={<CadastroPaciente />} /> {/* Renomeado */}
+            <Route path="/visualizar-paciente/:id" element={<VisualizarPaciente />} /> {/* Renomeado */}
+            <Route path="/consulta-pacientes" element={<ConsultaPacientes />} /> {/* Renomeado */}
+            <Route path="/orcamento" element={<Orcamento />} />
+            <Route path="/agendamento" element={<Agendamento />} />
+            <Route path="/agendamentos/editar/:idAgendamento" element={<EditarAgendamento />} />
+            <Route path="/historico" element={<HistoricoPaciente />} />
+            <Route path="/relatorios" element={<Relatorios />} />
+
+            {/* Rotas de Admin aninhadas sob /admin */}
+            <Route path="/admin" element={<AdminRoute><AdminPanel /></AdminRoute>} />
+            <Route path="/admin/gerenciar-usuarios" element={<AdminRoute><GerenciarDentistas /></AdminRoute>} /> {/* Ajustar nome do componente */}
+            <Route path="/admin/cadastrar-usuario" element={<AdminRoute><CadastroUsuario /></AdminRoute>} />
+            <Route path="/admin/alterar-senha" element={<AdminRoute><AlterarSenhaAdmin /></AdminRoute>} />
+            <Route path="/admin/tabela-precos" element={<AdminRoute><TabelaPrecosAdmin /></AdminRoute>} />
+            <Route path="/admin/aprovacoes" element={<AdminRoute><AprovacoesPagamento /></AdminRoute>} />
+          </Route>
+
+          <Route path="/" element={<Navigate to={currentUser ? "/dashboard" : "/login"} replace />} />
+          <Route path="*" element={<Navigate to={currentUser ? "/dashboard" : "/login"} replace />} /> {/* Rota catch-all */}
         </Routes>
-        {isAuthenticated && <AdminButton />} {/* Renderiza o botão se autenticado */}
-        <Toaster richColors position="top-right" /> {/* Adiciona o Toaster globalmente */}
+        {/* O AdminButton pode ser movido para dentro do Dashboard ou um Layout autenticado e renderizado condicionalmente */}
+        {/* {currentUser && currentUser.perfil === 'admin' && <AdminButton />} */}
+        <Toaster richColors position="top-right" />
       </div>
     </Router>
   );

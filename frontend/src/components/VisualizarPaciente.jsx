@@ -23,6 +23,17 @@ const VisualizarPaciente = () => {
   const [filePreview, setFilePreview] = useState(null)
   const [saving, setSaving] = useState(false)
 
+  // Estados para o modal de Registrar Pagamento
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [paymentValue, setPaymentValue] = useState('');
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
+
+  // Idealmente, o currentUser viria de um contexto global (React Context API ou Zustand/Redux)
+  // Para simplificar, vamos assumir que o token contém as informações necessárias ou faremos uma chamada a /api/me
+  // Por enquanto, o backend irá validar o token e associar o dentista_id ao usuário logado.
+  // const { currentUser } = useOutletContext(); // Se estivesse usando context de RRD Outlet
+
   useEffect(() => {
     fetchPatient()
     fetchBudgets()
@@ -156,9 +167,58 @@ const VisualizarPaciente = () => {
     }
   }
 
+  const handleOpenPaymentModal = () => {
+    setPaymentValue('');
+    setPaymentError('');
+    setIsPaymentModalOpen(true);
+  };
+
+  const handleRegisterPayment = async () => {
+    if (!paymentValue || isNaN(parseFloat(paymentValue)) || parseFloat(paymentValue) <= 0) {
+      setPaymentError('Por favor, insira um valor de pagamento válido.');
+      return;
+    }
+    setPaymentLoading(true);
+    setPaymentError('');
+    const token = localStorage.getItem('token');
+
+    try {
+      const response = await fetch(`${API_URL}/pagamentos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-access-token': token,
+        },
+        body: JSON.stringify({
+          paciente_id: parseInt(id, 10),
+          valor: parseFloat(paymentValue),
+        }),
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        // toast.success('Pagamento registrado com sucesso!'); // Se estiver usando sonner
+        alert('Pagamento registrado com sucesso! Ele está pendente de aprovação.');
+        setIsPaymentModalOpen(false);
+        // Opcional: atualizar alguma lista de pagamentos se exibida nesta tela
+      } else {
+        setPaymentError(data.message || 'Erro ao registrar pagamento.');
+        // toast.error(data.message || 'Erro ao registrar pagamento.');
+      }
+    } catch (err) {
+      setPaymentError('Erro de conexão ao registrar pagamento.');
+      // toast.error('Erro de conexão ao registrar pagamento.');
+      console.error("Erro ao registrar pagamento:", err);
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+
   const formatDate = (dateString) => {
     if (!dateString) return '-'
-    return new Date(dateString).toLocaleDateString('pt-BR')
+    // Garantir que a data seja tratada como UTC para evitar problemas de fuso horário na formatação.
+    const date = new Date(dateString);
+    return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()).toLocaleDateString('pt-BR');
   }
 
   const formatPhone = (phone) => {
@@ -250,11 +310,18 @@ const VisualizarPaciente = () => {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-800 mb-2">
-            {patient?.nome} {patient?.sobrenome}
-          </h2>
-          <p className="text-gray-600">Visualização completa dos dados do paciente</p>
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h2 className="text-3xl font-bold text-gray-800 mb-1">
+              {patient?.nome} {patient?.sobrenome}
+            </h2>
+            <p className="text-gray-600">Visualização completa dos dados do paciente</p>
+          </div>
+          {/* Botão Registrar Pagamento - idealmente visível apenas para perfil 'comum' (dentista) */}
+          {/* A verificação de perfil para exibir o botão pode ser feita se `currentUser` estiver disponível aqui */}
+          <Button onClick={handleOpenPaymentModal} className="bg-green-600 hover:bg-green-700">
+            Registrar Pagamento
+          </Button>
         </div>
 
         <Card className="shadow-lg">
@@ -264,12 +331,12 @@ const VisualizarPaciente = () => {
               <span>Informações do Paciente</span>
             </CardTitle>
             <CardDescription>
-              Dados completos cadastrados no sistema
+              Dados completos cadastrados no sistema.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="dados-cadastrais" className="w-full">
-              <TabsList className="grid w-full grid-cols-5">
+              <TabsList className="grid w-full grid-cols-5 mb-4"> {/* Adicionado mb-4 */}
                 <TabsTrigger value="dados-cadastrais" className="flex items-center space-x-2">
                   <User className="h-4 w-4" />
                   <span>Dados Cadastrais</span>
@@ -782,9 +849,48 @@ const VisualizarPaciente = () => {
           </div>
         </div>
       </main>
+
+      {/* Modal de Registrar Pagamento */}
+      {isPaymentModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle>Registrar Novo Pagamento</CardTitle>
+              <CardDescription>Paciente: {patient?.nome} {patient?.sobrenome}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {paymentError && (
+                <Alert variant="destructive">
+                  <AlertDescription>{paymentError}</AlertDescription>
+                </Alert>
+              )}
+              <div>
+                <Label htmlFor="paymentValue">Valor do Pagamento (R$)</Label>
+                <Input
+                  id="paymentValue"
+                  type="number"
+                  step="0.01"
+                  placeholder="Ex: 150.00"
+                  value={paymentValue}
+                  onChange={(e) => setPaymentValue(e.target.value)}
+                  className={paymentError.includes('valor') ? 'border-red-500' : ''}
+                />
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setIsPaymentModalOpen(false)} disabled={paymentLoading}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleRegisterPayment} disabled={paymentLoading} className="bg-green-600 hover:bg-green-700">
+                  {paymentLoading ? 'Registrando...' : 'Registrar Pagamento'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }
 
-export default VisualizarPaciente
+export default VisualizarPaciente;
 

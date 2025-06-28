@@ -46,71 +46,95 @@ const isPastDate = (dateString) => {
 const Agendamento = () => {
   const [pacientes, setPacientes] = useState([]);
   const [pacientesFiltrados, setPacientesFiltrados] = useState([]);
-  const [pacienteSelecionado, setPacienteSelecionado] = useState('');
-  const [buscaPaciente, setBuscaPaciente] = useState('');
-  const [data, setData] = useState('');
-  const [hora, setHora] = useState('');
+  const [pacienteSelecionadoId, setPacienteSelecionadoId] = useState(''); // Armazena ID
+  const [buscaPacienteInput, setBuscaPacienteInput] = useState(''); // Controla o input de busca
+  const [dataAgendamento, setDataAgendamento] = useState(''); // Nome mais específico
+  const [horaAgendamento, setHoraAgendamento] = useState(''); // Nome mais específico
   const [duracao, setDuracao] = useState('30');
   const [observacao, setObservacao] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showBusca, setShowBusca] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false); // Estado para controlar o modal
+  const [showBuscaResultados, setShowBuscaResultados] = useState(false); // Controla visibilidade dos resultados
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [dentistas, setDentistas] = useState([]); // Para admins selecionarem o dentista
+  const [dentistaSelecionadoId, setDentistaSelecionadoId] = useState(''); // Para admin
 
-  // Efeito para carregar pacientes
+  const { currentUser } = useOutletContext(); // Obter usuário logado
+
+  // Carregar pacientes e dentistas (se admin)
   useEffect(() => {
-    fetch(`${API_URL}/patients`)
+    const token = localStorage.getItem('token');
+    fetch(`${API_URL}/pacientes`, { headers: {'x-access-token': token }}) // Rota correta e token
       .then(response => response.json())
       .then(data => {
-        setPacientes(data);
-        setPacientesFiltrados(data);
+        setPacientes(Array.isArray(data) ? data : []);
+        setPacientesFiltrados(Array.isArray(data) ? data : []);
       })
       .catch(error => console.error('Erro ao carregar pacientes:', error));
-  }, []);
 
-  // Efeito para filtrar pacientes
+    if (currentUser && currentUser.perfil === 'admin') {
+      fetch(`${API_URL}/dentistas`, { headers: {'x-access-token': token }}) // Rota para listar dentistas
+        .then(response => response.json())
+        .then(data => setDentistas(Array.isArray(data) ? data : []))
+        .catch(error => console.error('Erro ao carregar dentistas:', error));
+    }
+  }, [currentUser]);
+
+  // Filtrar pacientes
   useEffect(() => {
-    if (buscaPaciente.trim() === '') {
+    if (buscaPacienteInput.trim() === '') {
       setPacientesFiltrados(pacientes);
     } else {
-      const filtrados = pacientes.filter(paciente =>
-        paciente.nome.toLowerCase().includes(buscaPaciente.toLowerCase()) ||
-        paciente.sobrenome?.toLowerCase().includes(buscaPaciente.toLowerCase()) ||
-        paciente.cpf?.includes(buscaPaciente)
+      const lowerBusca = buscaPacienteInput.toLowerCase();
+      const filtrados = pacientes.filter(p =>
+        p.nome.toLowerCase().includes(lowerBusca) ||
+        (p.sobrenome && p.sobrenome.toLowerCase().includes(lowerBusca)) ||
+        (p.cpf && p.cpf.includes(buscaPacienteInput))
       );
       setPacientesFiltrados(filtrados);
     }
-  }, [buscaPaciente, pacientes]);
+  }, [buscaPacienteInput, pacientes]);
 
   const handleAgendar = async () => {
-    if (!pacienteSelecionado && !buscaPaciente.trim()) { // Permitir agendar sem paciente selecionado se nome foi digitado
-      alert('Por favor, selecione ou digite o nome do paciente.');
+    if (!pacienteSelecionadoId && !buscaPacienteInput.trim()) {
+      toast.error('Por favor, selecione ou digite o nome do paciente.');
       return;
     }
-
-    if (!data || !hora) {
-      alert('Por favor, preencha a data e hora do agendamento.');
+    if (!dataAgendamento || !horaAgendamento) {
+      toast.error('Por favor, preencha a data e hora do agendamento.');
+      return;
+    }
+    if (currentUser.perfil === 'admin' && !dentistaSelecionadoId) {
+      toast.error('Admin, por favor selecione o dentista para o agendamento.');
       return;
     }
 
     setLoading(true);
+    const token = localStorage.getItem('token');
 
-    let agendamentoData = {
-      appointment_date: data,
-      appointment_time: hora,
+    let agendamentoPayload = {
+      appointment_date: dataAgendamento,
+      appointment_time: horaAgendamento,
       observacao: observacao,
-      duration_minutes: parseInt(duracao, 10)
+      duration_minutes: parseInt(duracao, 10),
+      // dentista_id será definido com base no perfil ou seleção do admin
     };
 
-    if (pacienteSelecionado) {
-      const pacienteObj = pacientes.find(p => p.id.toString() === pacienteSelecionado);
-      agendamentoData.patient_id = parseInt(pacienteSelecionado, 10);
-      agendamentoData.patient_name = pacienteObj ? `${pacienteObj.nome} ${pacienteObj.sobrenome || ''}`.trim() : buscaPaciente;
+    if (currentUser.perfil === 'admin') {
+      agendamentoPayload.dentista_id = parseInt(dentistaSelecionadoId, 10);
+    } else { // Usuário comum (dentista) agenda para si mesmo
+      agendamentoPayload.dentista_id = currentUser.id;
+    }
+
+    if (pacienteSelecionadoId) {
+      agendamentoPayload.patient_id = parseInt(pacienteSelecionadoId, 10);
+      // O backend vai buscar o nome do paciente pelo ID, não precisamos mais enviar patient_name
     } else {
-      agendamentoData.patient_name = buscaPaciente.trim(); // Usar o nome digitado se nenhum paciente foi selecionado
+      // Se não há ID selecionado, o backend criará um paciente "pré-cadastro" com o nome fornecido
+      agendamentoPayload.patient_name = buscaPacienteInput.trim();
     }
     
-    if (!agendamentoData.patient_name && !agendamentoData.patient_id) {
-        alert('Por favor, selecione ou digite o nome do paciente.');
+    if (!agendamentoPayload.patient_id && !agendamentoPayload.patient_name) {
+        toast.error('Nome do paciente ou ID é necessário.');
         setLoading(false);
         return;
     }
@@ -120,82 +144,96 @@ const Agendamento = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-access-token': token,
         },
-        body: JSON.stringify(agendamentoData),
+        body: JSON.stringify(agendamentoPayload),
       });
 
       const result = await response.json();
 
       if (result.success) {
-        alert('Agendamento realizado com sucesso!');
-        setPacienteSelecionado('');
-        // setData(''); // Não limpar data e hora para permitir agendamentos sequenciais no mesmo slot
-        // setHora('');
-        setDuracao('30');
+        toast.success('Agendamento realizado com sucesso!');
+        setPacienteSelecionadoId('');
+        setBuscaPacienteInput('');
         setObservacao('');
-        setBuscaPaciente('');
-        setShowBusca(false);
-        setIsModalOpen(false); // Fechar modal após agendamento
-        // Atualizar calendário (a lógica de atualização do calendário deve ser chamada aqui se existir)
-        // Ex: fetchCalendarAppointments(); // Supondo que CalendarioAgendamentos exponha ou receba essa função
+        setDuracao('30');
+        if (currentUser.perfil === 'admin') setDentistaSelecionadoId('');
+        setShowBuscaResultados(false);
+        setIsModalOpen(false);
+        // TODO: Atualizar o componente CalendarioAgendamentos para refletir o novo agendamento.
+        // Isso pode ser feito chamando uma função passada por props ou usando um estado global/context.
+        // Ex: props.onAgendamentoCriado(result.appointment);
       } else {
-        alert(`Erro: ${result.message}`);
+        toast.error(`Erro: ${result.message || 'Falha ao agendar.'}`);
       }
     } catch (error) {
-      alert('Erro ao realizar agendamento. Tente novamente.');
-      console.error('Erro:', error);
+      toast.error('Erro de conexão ao realizar agendamento.');
+      console.error('Erro no agendamento:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePacienteChange = (value) => {
-    setPacienteSelecionado(value);
-    if (value) {
-      const paciente = pacientes.find(p => p.id.toString() === value);
-      setBuscaPaciente(paciente ? `${paciente.nome} ${paciente.sobrenome || ''}` : '');
-      setShowBusca(false);
+  const handleBuscaInputChange = (e) => {
+    setBuscaPacienteInput(e.target.value);
+    setShowBuscaResultados(true);
+    if (e.target.value) {
+      setPacienteSelecionadoId(''); // Limpa seleção se algo for digitado
     }
   };
 
-  const handleBuscaChange = (e) => {
-    setBuscaPaciente(e.target.value);
-    setShowBusca(true);
-    if (e.target.value) { // Se algo for digitado, deselecionar paciente da lista
-      setPacienteSelecionado('');
-    }
+  const selecionarPacienteDaLista = (paciente) => {
+    setPacienteSelecionadoId(paciente.id.toString());
+    setBuscaPacienteInput(`${paciente.nome} ${paciente.sobrenome || ''}`.trim());
+    setShowBuscaResultados(false);
   };
 
-  const selecionarPacienteBusca = (paciente) => {
-    setPacienteSelecionado(paciente.id.toString());
-    setBuscaPaciente(`${paciente.nome} ${paciente.sobrenome || ''}`);
-    setShowBusca(false);
-  };
-
-  // Função para abrir o modal com data e hora preenchidas
   const abrirModalAgendamento = (dia, horario) => {
-    setData(dia.toISOString().split('T')[0]);
-    setHora(horario);
-    setPacienteSelecionado(''); // Limpar seleção anterior
-    setBuscaPaciente(''); // Limpar busca anterior
-    setObservacao(''); // Limpar observação anterior
-    setDuracao('30'); // Resetar duração
+    setDataAgendamento(dia.toISOString().split('T')[0]); // Usar nome correto do estado
+    setHoraAgendamento(horario); // Usar nome correto do estado
+    setPacienteSelecionadoId('');
+    setBuscaPacienteInput('');
+    setObservacao('');
+    setDuracao('30');
+    // Para admin, limpar seleção de dentista ou pré-selecionar se houver lógica para isso
+    if (currentUser && currentUser.perfil === 'admin') {
+      setDentistaSelecionadoId('');
+    }
     setIsModalOpen(true);
   };
 
   const AgendamentoForm = () => (
     <form onSubmit={(e) => { e.preventDefault(); handleAgendar(); }}>
       <div className="grid w-full items-center gap-6">
+        {/* Campo de Seleção de Dentista (Apenas para Admin) */}
+        {currentUser && currentUser.perfil === 'admin' && (
+          <div className="flex flex-col space-y-1.5">
+            <Label htmlFor="dentista-select-modal">Dentista Responsável</Label>
+            <Select value={dentistaSelecionadoId} onValueChange={setDentistaSelecionadoId} required>
+              <SelectTrigger id="dentista-select-modal">
+                <SelectValue placeholder="Selecione o dentista" />
+              </SelectTrigger>
+              <SelectContent>
+                {dentistas.map(dentista => (
+                  <SelectItem key={dentista.id} value={dentista.id.toString()}>
+                    {dentista.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         <div className="flex flex-col space-y-1.5">
           <Label htmlFor="busca-paciente-modal">Buscar Paciente Existente</Label>
           <div className="relative">
             <div className="flex">
               <Input
                 id="busca-paciente-modal"
-                placeholder="Digite nome ou CPF"
-                value={buscaPaciente}
-                onChange={handleBuscaChange}
-                onFocus={() => setShowBusca(true)}
+                placeholder="Digite nome ou CPF do paciente"
+                value={buscaPacienteInput}
+                onChange={handleBuscaInputChange}
+                onFocus={() => setShowBuscaResultados(true)}
                 className="pr-10"
               />
               <Button
@@ -203,29 +241,37 @@ const Agendamento = () => {
                 variant="outline"
                 size="sm"
                 className="ml-2"
-                onClick={() => setShowBusca(!showBusca)}
+                onClick={() => setShowBuscaResultados(!showBuscaResultados)}
               >
                 <Search className="h-4 w-4" />
               </Button>
             </div>
-            {showBusca && buscaPaciente.trim() !== '' && pacientesFiltrados.length > 0 && (
+            {showBuscaResultados && buscaPacienteInput.trim() !== '' && pacientesFiltrados.length > 0 && (
               <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto">
                 {pacientesFiltrados.map((paciente) => (
                   <div
                     key={paciente.id}
                     className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b"
-                    onClick={() => selecionarPacienteBusca(paciente)}
+                    onClick={() => selecionarPacienteDaLista(paciente)}
                   >
                     <div className="font-medium">{paciente.nome} {paciente.sobrenome || ''}</div>
-                    <div className="text-sm text-gray-600">CPF: {paciente.cpf || 'Nao informado'}</div>
+                    <div className="text-sm text-gray-600">CPF: {paciente.cpf || 'Não informado'}</div>
                   </div>
                 ))}
               </div>
             )}
+             {showBuscaResultados && buscaPacienteInput.trim() !== '' && pacientesFiltrados.length === 0 && (
+                <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg p-2 text-sm text-gray-500">
+                    Nenhum paciente encontrado. Continue digitando para cadastrar um novo.
+                </div>
+            )}
           </div>
         </div>
         <div className="text-center text-gray-500 text-sm font-medium">
-          {pacienteSelecionado ? `Paciente selecionado: ${buscaPaciente}` : "Ou digite o nome do novo paciente acima."}
+          {pacienteSelecionadoId
+            ? `Paciente selecionado: ${buscaPacienteInput}`
+            : "Ou digite o nome do novo paciente acima para pré-cadastro."
+          }
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="flex flex-col space-y-1.5">
@@ -233,9 +279,9 @@ const Agendamento = () => {
             <Input
               id="data-modal"
               type="date"
-              value={data}
-              onChange={(e) => setData(e.target.value)}
-              min={new Date().toISOString().split('T')[0]}
+              value={dataAgendamento}
+              onChange={(e) => setDataAgendamento(e.target.value)}
+              min={new Date().toISOString().split('T')[0]} // Não permite datas passadas
               readOnly // Data e hora vêm do clique no calendário
             />
           </div>
@@ -244,17 +290,17 @@ const Agendamento = () => {
             <Input
               id="hora-modal"
               type="time"
-              value={hora}
-              onChange={(e) => setHora(e.target.value)}
+              value={horaAgendamento}
+              onChange={(e) => setHoraAgendamento(e.target.value)}
               readOnly // Data e hora vêm do clique no calendário
             />
           </div>
         </div>
         <div className="flex flex-col space-y-1.5">
-          <Label htmlFor="duracao-modal">Duracao</Label>
+          <Label htmlFor="duracao-modal">Duração</Label>
           <Select value={duracao} onValueChange={setDuracao}>
             <SelectTrigger id="duracao-modal">
-              <SelectValue placeholder="Selecione a duracao" />
+              <SelectValue placeholder="Selecione a duração" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="30">30 minutos</SelectItem>
@@ -265,10 +311,10 @@ const Agendamento = () => {
           </Select>
         </div>
         <div className="flex flex-col space-y-1.5">
-          <Label htmlFor="observacao-modal">Observacao</Label>
+          <Label htmlFor="observacao-modal">Observação</Label>
           <Textarea
             id="observacao-modal"
-            placeholder="Digite alguma observacao para o agendamento"
+            placeholder="Digite alguma observação para o agendamento"
             value={observacao}
             onChange={(e) => setObservacao(e.target.value)}
             className="min-h-[80px]"
