@@ -82,12 +82,15 @@ const CadastroDentista = () => {
   }, [id, isEditing])
 
   const fetchPatient = async () => {
+    const token = localStorage.getItem('token'); // Adicionar token
     try {
       setLoading(true)
-      const response = await fetch(`${API_URL}/patients/${id}`)
+      const response = await fetch(`${API_URL}/pacientes/${id}`, { // Alterado para /pacientes
+        headers: { 'x-access-token': token }
+      });
       const data = await response.json()
       
-      if (data.success) {
+      if (response.ok && data.success) { // Checar response.ok também
         setFormData(data.data)
       } else {
         setMessage('Erro ao carregar dados do paciente')
@@ -115,35 +118,28 @@ const CadastroDentista = () => {
     e.preventDefault()
     setLoading(true)
     setMessage('')
+    const token = localStorage.getItem('token'); // Adicionar token
 
     try {
-      const url = isEditing ? `${API_URL}/patients/${id}` : `${API_URL}/patients`
+      const url = isEditing ? `${API_URL}/pacientes/${id}` : `${API_URL}/pacientes` // Alterado para /pacientes
       const method = isEditing ? 'PUT' : 'POST'
       
       const response = await fetch(url, {    
         method: method,
         headers: {
           'Content-Type': 'application/json',
+          'x-access-token': token, // Adicionar token
         },
         body: JSON.stringify(formData),
       })
 
       const data = await response.json()
 
-      if (data.success) {
+      if (response.ok && data.success) { // Checar response.ok
         setMessage(isEditing ? 'Paciente atualizado com sucesso!' : 'Paciente cadastrado com sucesso!')
         setMessageType('success')
         
-        if (isEditing) {
-          // Se estiver editando, após o sucesso, podemos redirecionar para a consulta
-          // ou dar um tempo para o usuário ler a mensagem e então redirecionar.
-          // Por agora, vamos apenas exibir a mensagem. O usuário navegará manualmente.
-          // Considerar adicionar um botão "Voltar para Consulta" ou redirecionamento automático.
-          // Para forçar a atualização na tela de consulta, uma abordagem seria
-          // invalidar um cache ou usar um estado global, mas a forma mais simples
-          // ao voltar é que a consulta recarregue os dados.
-        } else {
-          // Reset form only for new registrations
+        if (!isEditing) { // Resetar formulário apenas se não estiver editando
           setFormData({
             nome: '', sobrenome: '', data_nascimento: '', sexo: '', cpf: '', rg: '',
             estado_civil: '', escolaridade: '', como_conheceu: '', observacoes: '',

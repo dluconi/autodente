@@ -22,13 +22,13 @@ const ConsultaDentistas = () => {
 
   useEffect(() => {
     if (searchTerm) {
-      const filtered = patients.filter(dentist => {
-        if (!dentist) return false;
+      const filtered = patients.filter(paciente => { // Alterado para paciente
+        if (!paciente) return false;
         return (
-          (dentist.nome && dentist.nome.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (dentist.sobrenome && dentist.sobrenome.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (dentist.cpf && dentist.cpf.includes(searchTerm)) ||
-          (dentist.email && dentist.email.toLowerCase().includes(searchTerm.toLowerCase()))
+          (paciente.nome && paciente.nome.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (paciente.sobrenome && paciente.sobrenome.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (paciente.cpf && paciente.cpf.includes(searchTerm)) ||
+          (paciente.email && paciente.email.toLowerCase().includes(searchTerm.toLowerCase()))
         );
       });
       setFilteredPatients(filtered)
@@ -38,32 +38,39 @@ const ConsultaDentistas = () => {
   }, [searchTerm, patients])
 
   const fetchPatients = async () => {
+    const token = localStorage.getItem('token'); // Adicionar token
     try {
-      const response = await fetch(`${API_URL}/patients`);    
-      const data = await response.json()
-      setPatients(data)
-      setFilteredPatients(data)
+      const response = await fetch(`${API_URL}/pacientes`, { // Alterado para /pacientes
+        headers: { 'x-access-token': token }
+      });
+      if (!response.ok) throw new Error('Falha ao buscar pacientes');
+      const data = await response.json();
+      setPatients(Array.isArray(data) ? data : []); // Garantir que seja um array
+      setFilteredPatients(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError('Erro ao carregar pacientes')
+      setError('Erro ao carregar pacientes: ' + err.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   const handleDelete = async (id) => {
     if (window.confirm('Tem certeza que deseja excluir este paciente?')) {
+      const token = localStorage.getItem('token'); // Adicionar token
       try {
-        const response = await fetch(`${API_URL}/patients/${id}`, {
+        const response = await fetch(`${API_URL}/pacientes/${id}`, { // Alterado para /pacientes
           method: 'DELETE',
-        })
+          headers: { 'x-access-token': token }
+        });
         
         if (response.ok) {
-          fetchPatients() // Reload the list
+          fetchPatients(); // Recarregar a lista
         } else {
-          setError('Erro ao excluir paciente')
+          const data = await response.json();
+          setError(data.message || 'Erro ao excluir paciente');
         }
       } catch (err) {
-        setError('Erro de conexão com o servidor')
+        setError('Erro de conexão com o servidor: ' + err.message);
       }
     }
   }
