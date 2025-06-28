@@ -36,11 +36,18 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:5000/api # Para acesso via navegador no host
+        # Se a comunicação fosse interna entre containers e o frontend servisse APIs:
+        # VITE_API_URL: http://backend:5000/api
     container_name: dentist_frontend
     ports:
-      - "3001:3001"
+      - "3001:3001" # Mapeia a porta 3001 do host para a 3001 do container
     depends_on:
       - backend
+    # Adicionar environment aqui se o CMD no Dockerfile não pegar o ARG/ENV corretamente para o preview
+    # environment:
+    #   VITE_API_URL: http://localhost:5000/api
 
 volumes:
   mysql_data:
