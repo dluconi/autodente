@@ -1,14 +1,14 @@
-import { Link, useOutletContext } from 'react-router-dom'; // Adicionado useOutletContext
+import { Link } from 'react-router-dom'; // Removido useOutletContext
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
   Stethoscope, UserPlus, Users, FileText, Home, Calendar, LogOut, BarChart,
-  DollarSign, ShieldCheck, UserCog // Adicionando ícones para admin
+  DollarSign, ShieldCheck, UserCog
 } from 'lucide-react';
-import AdminButton from './AdminButton'; // Importar AdminButton
+import AdminButton from './AdminButton';
 
-const Dashboard = () => {
-  const { currentUser, handleLogout } = useOutletContext(); // Obter currentUser e handleLogout do contexto
+// O Dashboard agora recebe currentUser e onLogout como props
+const Dashboard = ({ currentUser, onLogout }) => {
 
   const nomeUsuario = currentUser?.nome || 'Usuário';
   const perfilUsuario = currentUser?.perfil || 'desconhecido';
@@ -46,7 +46,7 @@ const Dashboard = () => {
                 variant="ghost" 
                 size="sm" 
                 className="flex items-center space-x-2 text-red-600 hover:text-red-700 hover:bg-red-50"
-                onClick={handleLogout} // Usar handleLogout do contexto
+                onClick={onLogout} // Usar onLogout recebido via props
               >
                 <LogOut className="h-4 w-4" />
                 <span>Sair</span>
