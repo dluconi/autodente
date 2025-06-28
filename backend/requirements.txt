@@ -3,5 +3,7 @@ Flask-SQLAlchemy
 PyMySQL
 Flask-CORS
 cryptography
+PyJWT # Adicionado para lidar com JSON Web Tokens
+Werkzeug # Usado para hashing de senhas, geralmente já é uma dependência do Flask, mas explicitar pode ser bom.
 
 
