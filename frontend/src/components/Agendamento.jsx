@@ -12,7 +12,7 @@ import {
 } from '@dnd-kit/core';
 import { useDraggable } from '@dnd-kit/core';
 import { useDroppable } from '@dnd-kit/core';
-import { CSS } from '@dnd-kit/utilities';
+import { CSS } from '@dnd-kit/utilities'; // Revertido para utilities
 import { ResizableBox } from 'react-resizable';
 // CSS for react-resizable is now imported in main.jsx
 import { toast } from 'sonner';
