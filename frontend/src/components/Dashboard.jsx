@@ -17,19 +17,20 @@ const Dashboard = ({ onLogout }) => {
   }, [])
 
   const fetchDashboardData = async () => {
+    const cleanedApiUrl = API_URL.replace(/\/$/, ""); // Remove a barra final de API_URL se existir
     try {
       // Buscar agendamentos de hoje
-      const todayResponse = await fetch(`${API_URL}/api/appointments/today`)
+      const todayResponse = await fetch(`${cleanedApiUrl}/api/appointments/today`)
       const todayData = await todayResponse.json()
       setAppointmentsToday(todayData)
 
       // Buscar agendamentos de amanhã
-      const tomorrowResponse = await fetch(`${API_URL}/api/appointments/tomorrow`)
+      const tomorrowResponse = await fetch(`${cleanedApiUrl}/api/appointments/tomorrow`)
       const tomorrowData = await tomorrowResponse.json()
       setAppointmentsTomorrow(tomorrowData)
 
       // Buscar total de pacientes
-      const patientsResponse = await fetch(`${API_URL}/api/dentists`)
+      const patientsResponse = await fetch(`${cleanedApiUrl}/api/dentists`)
       const patientsData = await patientsResponse.json()
       setTotalPatients(patientsData.length)
 
