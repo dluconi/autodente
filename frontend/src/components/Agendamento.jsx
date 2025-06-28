@@ -25,24 +25,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogC
 import { Stethoscope, ArrowLeft, Calendar, Search, Home, Trash2, Edit } from 'lucide-react';
 import API_URL from '../lib/api';
 
-// Helper function to check if a date string (YYYY-MM-DD) is in the past
-const isPastDate = (dateString) => {
-  if (!dateString) return false;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const parts = dateString.split('-').map(Number);
-  // Ensure parts are valid before creating a date
-  if (parts.length !== 3 || isNaN(parts[0]) || isNaN(parts[1]) || isNaN(parts[2])) {
-    console.warn("Invalid date string provided to isPastDate:", dateString);
-    return false;
-  }
-  const appointmentDate = new Date(parts[0], parts[1] - 1, parts[2]);
-  appointmentDate.setHours(0, 0, 0, 0);
-
-  return appointmentDate < today;
-};
-
 const Agendamento = () => {
   const [pacientes, setPacientes] = useState([]);
   const [pacientesFiltrados, setPacientesFiltrados] = useState([]);
@@ -416,7 +398,6 @@ const AppointmentCard = React.forwardRef(
   // `style` prop from dnd-kit is no longer passed here. `...props` might contain onClick from DraggableAppointmentItem if we decide to.
   ({ agendamento, isDragging, navigate, excluirAgendamento, onAppointmentUpdate, isOverlay, ...otherProps }, ref) => {
     if (!agendamento) return null;
-    const appointmentIsPast = isPastDate(agendamento.appointment_date);
 
     // Calculate initial height in pixels for ResizableBox
     // Assuming 1rem = 16px (common browser default)
@@ -471,13 +452,15 @@ const AppointmentCard = React.forwardRef(
       onResize: onResize,
       onResizeStop: onResizeStop,
       draggableOpts: { enableUserSelectHack: false }, // Important for dnd-kit compatibility
-      minConstraints: [Infinity, slotHeightPx],
-      maxConstraints: [Infinity, slotHeightPx * 8],
-      axis: appointmentIsPast ? "none" : "s",
+      minConstraints: [Infinity, slotHeightPx], // Min height is one slot
+      maxConstraints: [Infinity, slotHeightPx * 8], // Max 4 hours (8 slots of 30 min)
+      axis: "s",
+      // className for ResizableBox itself. It's no longer absolutely positioned.
+      // It will define borders, background, etc. Parent div in DraggableAppointmentItem handles positioning.
       className: `w-full h-full rounded border group text-xs flex items-center space-x-1.5 overflow-hidden bg-white ${isDragging ? 'shadow-md' : 'hover:bg-gray-50'} ${
         agendamento.patient_is_fully_registered === false ? 'border-red-400' : 'border-blue-400'
-      } ${appointmentIsPast ? 'opacity-75' : ''}`, // Add slight opacity for past items
-      handle: appointmentIsPast ? null : <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-1 bg-slate-500 opacity-50 group-hover:opacity-100 cursor-s-resize rounded-t-sm z-30" onPointerDown={(e) => e.stopPropagation()} />,
+      }`,
+      handle: <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-1 bg-slate-500 opacity-50 group-hover:opacity-100 cursor-s-resize rounded-t-sm z-30" onPointerDown={(e) => e.stopPropagation()} />,
     };
 
     const coreContent = (
@@ -546,11 +529,8 @@ const AppointmentCard = React.forwardRef(
 
 // New Component: DraggableAppointmentItem
 const DraggableAppointmentItem = ({ agendamento, navigate, excluirAgendamento, onAppointmentUpdate }) => {
-  const appointmentIsPast = isPastDate(agendamento.appointment_date);
-
   const { attributes, listeners, setNodeRef, transform, active } = useDraggable({
     id: `appointment_${agendamento.id}`,
-    disabled: appointmentIsPast, // Disable dragging for past appointments
     data: {
       type: 'appointment',
       appointmentData: agendamento,
@@ -565,8 +545,9 @@ const DraggableAppointmentItem = ({ agendamento, navigate, excluirAgendamento, o
     position: 'absolute',
     left: '0.125rem',
     right: '0.125rem',
-    zIndex: isBeingDragged ? 1001 : (appointmentIsPast ? 99 : 100),
-    cursor: appointmentIsPast ? 'default' : (isBeingDragged ? 'grabbing' : 'grab'),
+    // The height will be dictated by AppointmentCard which contains ResizableBox
+    zIndex: isBeingDragged ? 1001 : 100, // Ensure dragged item is above others, but below overlay
+    cursor: isBeingDragged ? 'grabbing' : 'grab', // Explicitly set grab/grabbing cursor
   };
 
   return (
@@ -684,14 +665,6 @@ const CalendarioAgendamentos = ({ onSlotClick }) => {
 
       const [newDateStr, newTimeStr] = over.id.toString().split('_');
 
-      // === New Check: Prevent dropping onto a past date ===
-      if (isPastDate(newDateStr)) {
-        toast.error("Não é permitido mover agendamentos para datas passadas.");
-        // No UI change needed as optimistic update hasn't happened yet for the drop.
-        return;
-      }
-      // === End of New Check ===
-
       const originalAppointment = calendarAppointments.find(app => app.id === draggedAppointmentId);
 
       if (!originalAppointment) {
@@ -732,41 +705,9 @@ const CalendarioAgendamentos = ({ onSlotClick }) => {
   };
 
   const [currentOverSlot, setCurrentOverSlot] = useState(null);
-  const calendarGridRef = React.useRef(null);
-  const [lastAutoScrollTime, setLastAutoScrollTime] = useState(0);
-  const AUTO_SCROLL_COOLDOWN = 700; // milliseconds
-
-  const handleDragMove = (event) => {
-    const { active, over } = event;
-
+  const handleDragOver = (event) => {
+    const { over } = event;
     setCurrentOverSlot(over ? over.id : null);
-
-    if (!active || !active.id.startsWith('appointment_') || !calendarGridRef.current || !event.active.rect.current.translated) {
-      return;
-    }
-
-    const now = Date.now();
-    if (now - lastAutoScrollTime < AUTO_SCROLL_COOLDOWN) {
-      return;
-    }
-
-    const calendarRect = calendarGridRef.current.getBoundingClientRect();
-    const draggedItemRect = event.active.rect.current.translated;
-    // Use the center of the dragged item for determining position relative to edges
-    const draggedItemCenterX = draggedItemRect.left + draggedItemRect.width / 2;
-
-    const scrollZoneThreshold = 60; // Pixels from edge
-
-    if (draggedItemCenterX < calendarRect.left + scrollZoneThreshold) {
-      semanaAnterior();
-      setLastAutoScrollTime(now);
-      // When week changes, dnd-kit might need to recalculate droppable elements.
-      // This usually happens if the DOM structure changes or if explicitly told.
-      // For now, relying on existing state updates to trigger re-renders.
-    } else if (draggedItemCenterX > calendarRect.right - scrollZoneThreshold) {
-      proximaSemana();
-      setLastAutoScrollTime(now);
-    }
   };
 
   const handleAppointmentUpdate = async (appointmentId, updates) => {
@@ -891,7 +832,7 @@ const CalendarioAgendamentos = ({ onSlotClick }) => {
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-      onDragMove={handleDragMove} // Changed from onDragOver
+      onDragOver={handleDragOver}
     >
       <Card className="shadow-lg w-full flex flex-col">
         <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
@@ -932,7 +873,7 @@ const CalendarioAgendamentos = ({ onSlotClick }) => {
                   </div>
                 ))}
               </div>
-              <div ref={calendarGridRef} className="flex-1 grid grid-cols-7"> {/* Day columns - REF ADDED HERE */}
+              <div className="flex-1 grid grid-cols-7"> {/* Day columns */}
                 {semanaAtualVisivel.map((dia) => (
                   <div key={dia.toISOString()} className="border-r border-gray-300 flex flex-col relative"> {/* Each Day Column */}
                     {HORARIOS_DO_DIA.map(horario => {
