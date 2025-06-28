@@ -4,11 +4,11 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Stethoscope, Mail, Lock } from 'lucide-react'; // Alterado User para Mail
+import { Stethoscope, User, Lock } from 'lucide-react'; // Voltado para User icon
 import API_URL from '../lib/api';
 
-const Login = ({ onLoginSuccess }) => { // Renomeado onLogin para onLoginSuccess
-  const [email, setEmail] = useState(''); // Alterado username para email
+const Login = ({ onLoginSuccess }) => {
+  const [username, setUsername] = useState(''); // Alterado de email para username
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,8 +18,8 @@ const Login = ({ onLoginSuccess }) => { // Renomeado onLogin para onLoginSuccess
     setLoading(true);
     setError('');
 
-    if (!email || !password) {
-      setError('Email e senha são obrigatórios.');
+    if (!username || !password) { // Validar username
+      setError('Usuário e senha são obrigatórios.');
       setLoading(false);
       return;
     }
@@ -30,7 +30,7 @@ const Login = ({ onLoginSuccess }) => { // Renomeado onLogin para onLoginSuccess
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }), // Alterado username para email
+        body: JSON.stringify({ username, password }), // Enviar username
       });
 
       const data = await response.json();
@@ -70,17 +70,17 @@ const Login = ({ onLoginSuccess }) => { // Renomeado onLogin para onLoginSuccess
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium text-gray-700">
-                Email
+              <Label htmlFor="username" className="text-sm font-medium text-gray-700">
+                Usuário
               </Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" /> {/* Ícone User */}
                 <Input
-                  id="email"
-                  type="email" // Alterado type para email
-                  placeholder="seuemail@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  id="username"
+                  type="text" // Tipo texto para username
+                  placeholder="Digite seu nome de usuário"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   className="pl-10"
                   required
                 />

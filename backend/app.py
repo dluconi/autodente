@@ -90,8 +90,9 @@ def is_valid_phone(phone: str) -> bool:
 class Usuario(db.Model):
     __tablename__ = 'usuarios'
     id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False) # Novo campo
     nome = db.Column(db.String(100), nullable=False)
-    email = db.Column(db.String(100), unique=True, nullable=False)
+    email = db.Column(db.String(100), unique=True, nullable=False) # Mantido único, mas não para login
     senha_hash = db.Column(db.String(255), nullable=False)
     perfil = db.Column(db.String(10), nullable=False, default='comum') # 'admin' ou 'comum'
 
@@ -111,6 +112,7 @@ class Usuario(db.Model):
     def to_dict(self):
         return {
             'id': self.id,
+            'username': self.username,
             'nome': self.nome,
             'email': self.email,
             'perfil': self.perfil
@@ -366,17 +368,17 @@ class HistoricoPaciente(db.Model):
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.get_json()
-    email = data.get('email')
+    username = data.get('username') # Alterado de email para username
     password = data.get('password')
 
-    if not email or not password:
-        return jsonify({'success': False, 'message': 'Email e senha são obrigatórios'}), 400
+    if not username or not password:
+        return jsonify({'success': False, 'message': 'Usuário e senha são obrigatórios'}), 400
 
-    user = Usuario.query.filter_by(email=email).first()
+    user = Usuario.query.filter_by(username=username).first() # Busca por username
 
     if not user or not user.check_password(password):
         return jsonify({'success': False, 'message': 'Credenciais inválidas'}), 401
-    
+
     # Geração do Token JWT
     token_payload = {
         'user_id': user.id,
@@ -396,25 +398,29 @@ def login():
 @admin_required # Apenas admins podem criar novos usuários (dentistas/admins)
 def create_usuario(current_user):
     data = request.get_json()
+    username = data.get('username')
     nome = data.get('nome')
     email = data.get('email')
     password = data.get('password')
-    perfil = data.get('perfil', 'comum') # Default 'comum'
+    perfil = data.get('perfil', 'comum')
 
-    if not nome or not email or not password:
-        return jsonify({"success": False, "message": "Nome, email e senha são obrigatórios."}), 400
+    if not username or not nome or not email or not password:
+        return jsonify({"success": False, "message": "Nome de usuário, nome, email e senha são obrigatórios."}), 400
 
-    if not is_valid_email(email):
+    if not is_valid_email(email): # Validação de email ainda é útil
         return jsonify({"success": False, "message": "Email inválido."}), 400
 
     if perfil not in ['admin', 'comum']:
         return jsonify({"success": False, "message": "Perfil inválido. Use 'admin' ou 'comum'."}), 400
 
-    if Usuario.query.filter_by(email=email).first():
+    if Usuario.query.filter_by(username=username).first():
+        return jsonify({"success": False, "message": "Nome de usuário já cadastrado."}), 409
+
+    if Usuario.query.filter_by(email=email).first(): # Email também deve ser único
         return jsonify({"success": False, "message": "Email já cadastrado."}), 409
 
     try:
-        novo_usuario = Usuario(nome=nome, email=email, perfil=perfil)
+        novo_usuario = Usuario(username=username, nome=nome, email=email, perfil=perfil)
         novo_usuario.set_password(password)
         db.session.add(novo_usuario)
         db.session.commit()
@@ -1160,15 +1166,38 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all() # Cria as tabelas se não existirem
         # Adicionar um usuário admin padrão se não existir
-        if not Usuario.query.filter_by(email=os.environ.get('ADMIN_EMAIL', 'admin@example.com')).first():
-            admin_user = Usuario(
-                nome=os.environ.get('ADMIN_NOME', 'Administrador Padrão'),
-                email=os.environ.get('ADMIN_EMAIL', 'admin@example.com'),
-                perfil='admin'
-            )
-            admin_user.set_password(os.environ.get('ADMIN_SENHA', 'admin123'))
-            db.session.add(admin_user)
-            db.session.commit()
-            print(f"Usuário admin '{admin_user.email}' criado/verificado.")
+        admin_username = 'admin'
+        admin_email = os.environ.get('ADMIN_EMAIL', 'admin@example.com')
+        admin_nome = os.environ.get('ADMIN_NOME', 'Administrador Padrão')
+        admin_senha = os.environ.get('ADMIN_SENHA', 'admin') # Senha padrão 'admin'
+
+        if not Usuario.query.filter_by(username=admin_username).first():
+            if Usuario.query.filter_by(email=admin_email).first():
+                # Se o email já existe mas o username 'admin' não, pode ser um problema de dados legados ou configuração.
+                # Aqui, vamos priorizar a criação do admin com username 'admin'.
+                # Poderia ser necessário tratar esse caso de forma mais elaborada.
+                print(f"Atenção: Email {admin_email} já existe, mas usuário '{admin_username}' não. Verifique a consistência dos dados.")
+                # Decide-se não criar o admin se o email já está em uso por outro username para evitar conflito no email unique.
+                # Ou, alternativamente, atualizar o usuário existente se a política permitir.
+                # Por simplicidade, aqui não faremos nada se o email já existir e o username 'admin' não.
+            else:
+                admin_user = Usuario(
+                    username=admin_username,
+                    nome=admin_nome,
+                    email=admin_email, # Email ainda precisa ser único
+                    perfil='admin'
+                )
+                admin_user.set_password(admin_senha)
+                db.session.add(admin_user)
+                db.session.commit()
+                print(f"Usuário admin '{admin_user.username}' (Email: {admin_user.email}) criado com senha '{admin_senha}'.")
+        else:
+            # Garantir que o usuário admin existente tenha a senha 'admin' se desejado
+            existing_admin = Usuario.query.filter_by(username=admin_username).first()
+            if not existing_admin.check_password(admin_senha):
+                print(f"Atualizando senha do usuário admin '{existing_admin.username}' para '{admin_senha}'.")
+                existing_admin.set_password(admin_senha)
+                db.session.commit()
+            print(f"Usuário admin '{existing_admin.username}' (Email: {existing_admin.email}) verificado.")
 
     app.run(host='0.0.0.0', port=5000, debug=True)

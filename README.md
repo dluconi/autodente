@@ -7,11 +7,12 @@ Este é um sistema completo de cadastro de pacientes desenvolvido especificament
 ## Características Principais
 
 ### Funcionalidades
-- **Autenticação Segura com JWT**: Login por email e senha, com perfis de acesso (Admin, Comum).
+- **Autenticação Segura com JWT**: Login por **nome de usuário (username)** e senha, com perfis de acesso (Admin, Comum).
 - **Perfis de Acesso**:
-    - **Admin**: Visualiza todas as agendas, aprova pagamentos, gerencia usuários.
+    - **Admin**: Visualiza todas as agendas, aprova pagamentos, gerencia usuários. Usuário padrão `admin`, senha `admin`.
     - **Comum (Dentista)**: Visualiza apenas sua própria agenda, registra pagamentos (pendentes de aprovação).
 - **Módulo de Aprovação de Pagamentos (Admin)**: Interface para aprovar/rejeitar pagamentos.
+- **Cadastro de Usuários (Admin)**: Interface para administradores cadastrarem novos usuários (dentistas ou outros admins) com nome de usuário, nome completo, email, senha e perfil.
 - **Cadastro Completo de Pacientes**: Formulário abrangente com múltiplas seções.
 - **Gerenciamento de Agendamentos**: Visualização de agenda semanal, drag-and-drop para reagendar (com validação de conflitos e permissões).
 - **Consulta e Busca de Pacientes**: Interface para visualizar e pesquisar pacientes.
@@ -66,14 +67,14 @@ Este é um sistema completo de cadastro de pacientes desenvolvido especificament
 ### Banco de Dados
 - **SGBD**: MySQL 8.0 (configurado no `docker-compose.yml` e `mysql_init.sql`)
 - **Estrutura**:
-    - `usuarios`: Armazena dados dos usuários do sistema (dentistas, administradores), incluindo email, senha hash e perfil.
-    - `pacientes`: Informações detalhadas dos pacientes (anteriormente `dentist`).
+    - `usuarios`: Armazena dados dos usuários do sistema (dentistas, administradores), incluindo `username` (para login), nome, email (para contato, único), senha hash e perfil.
+    - `pacientes`: Informações detalhadas dos pacientes.
     - `pagamentos`: Registros de pagamentos, com status, valor, paciente associado, dentista que registrou e admin que aprovou/rejeitou.
     - `appointments`: Agendamentos, associados a pacientes e dentistas.
     - `budgets`, `budget_procedures`: Para orçamentos.
     - `historico_pacientes`: Histórico clínico dos pacientes.
-- **Dados de Exemplo**: Pacientes de exemplo e um usuário administrador padrão criado na inicialização do backend (`admin@example.com` / `admin123`).
-- **Indexação**: Índices em campos chave como CPF (pacientes) e email (usuários) para performance e unicidade.
+- **Dados de Exemplo**: Pacientes de exemplo. Um usuário administrador padrão (`username: admin`, `password: admin`) é criado/verificado na inicialização do backend.
+- **Indexação**: Índices em campos chave como `username` e `email` (usuarios), e `cpf` (pacientes) para performance e unicidade.
 
 ### Containerização
 - **Docker**: Aplicação completamente containerizada
@@ -155,9 +156,10 @@ pnpm run dev --host
 ## Uso do Sistema
 
 ### Login
-- **Usuário Admin Padrão**: `admin@example.com`
-- **Senha Admin Padrão**: `admin123`
-- Outros usuários (dentistas) podem ser cadastrados pelo admin.
+- **Usuário Admin Padrão**: `admin`
+- **Senha Admin Padrão**: `admin`
+- O email do admin padrão é `admin@example.com` (configurável via variáveis de ambiente).
+- Outros usuários (dentistas ou admins) com `username` customizado podem ser cadastrados pelo admin através do painel de "Cadastrar Usuário".
 
 ### Fluxo de Trabalho (Exemplos)
 

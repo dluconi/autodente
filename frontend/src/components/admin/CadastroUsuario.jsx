@@ -9,10 +9,11 @@ import { toast } from 'sonner';
 import API_URL from '../../lib/api';
 
 const CadastroUsuario = () => {
+  const [username, setUsername] = useState(''); // Novo estado para username
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [perfil, setPerfil] = useState('comum'); // 'comum' ou 'admin'
+  const [perfil, setPerfil] = useState('comum');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -21,7 +22,7 @@ const CadastroUsuario = () => {
     setLoading(true);
     setError('');
 
-    if (!nome || !email || !password || !perfil) {
+    if (!username || !nome || !email || !password || !perfil) { // Adicionado username na validação
       setError('Todos os campos são obrigatórios.');
       setLoading(false);
       return;
@@ -36,7 +37,7 @@ const CadastroUsuario = () => {
           'Content-Type': 'application/json',
           'x-access-token': token,
         },
-        body: JSON.stringify({ nome, email, password, perfil }),
+        body: JSON.stringify({ username, nome, email, password, perfil }), // Incluído username
       });
 
       const data = await response.json();
@@ -76,18 +77,29 @@ const CadastroUsuario = () => {
           )}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="nome">Nome Completo</Label>
+              <Label htmlFor="username">Nome de Usuário (para login)</Label>
+              <Input
+                id="username"
+                type="text"
+                placeholder="Ex: dr.lucca, admin_sistema"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="nome">Nome Completo (para exibição)</Label>
               <Input
                 id="nome"
                 type="text"
-                placeholder="Nome do usuário"
+                placeholder="Nome completo do usuário"
                 value={nome}
                 onChange={(e) => setNome(e.target.value)}
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Email (para contato/recuperação)</Label>
               <Input
                 id="email"
                 type="email"

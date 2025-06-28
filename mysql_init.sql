@@ -9,8 +9,9 @@ FLUSH PRIVILEGES;
 -- Tabela de Usuários (Dentistas/Administradores)
 CREATE TABLE IF NOT EXISTS usuarios (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(80) UNIQUE NOT NULL, -- Adicionado campo username
     nome VARCHAR(100) NOT NULL,
-    email VARCHAR(100) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL, -- Mantido como UNIQUE
     senha_hash VARCHAR(255) NOT NULL,
     perfil VARCHAR(10) NOT NULL DEFAULT 'comum' -- 'admin' ou 'comum'
 );
