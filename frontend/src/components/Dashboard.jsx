@@ -1,56 +1,56 @@
 import { Link } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Stethoscope, UserPlus, Users, FileText, Home, Calendar, CalendarDays, LogOut, BarChart } from 'lucide-react' // Adicionado BarChart
-import { useState, useEffect } from 'react'
-import API_URL from '../lib/api';
+import { Stethoscope, UserPlus, Users, FileText, Home, Calendar, LogOut, BarChart } from 'lucide-react' // Adicionado BarChart, removido CalendarDays
+// import { useState, useEffect } from 'react' // Removido useState e useEffect não utilizados
+// import API_URL from '../lib/api'; // Removido API_URL não utilizado
 
 const Dashboard = ({ onLogout }) => {
-  const [appointmentsToday, setAppointmentsToday] = useState([])
-  const [appointmentsTomorrow, setAppointmentsTomorrow] = useState([])
-  const [totalPatients, setTotalPatients] = useState(0)
-  const [todayRegistrations, setTodayRegistrations] = useState(0)
-  const [loading, setLoading] = useState(true)
+  // const [appointmentsToday, setAppointmentsToday] = useState([]) // Removido estado
+  // const [appointmentsTomorrow, setAppointmentsTomorrow] = useState([]) // Removido estado
+  // const [totalPatients, setTotalPatients] = useState(0) // Removido estado, pode ser adicionado de volta se necessário para outras features
+  // const [todayRegistrations, setTodayRegistrations] = useState(0) // Removido estado, pode ser adicionado de volta se necessário para outras features
+  // const [loading, setLoading] = useState(true) // Removido estado
 
-  useEffect(() => {
-    fetchDashboardData()
-  }, [])
+  // useEffect(() => { // Removido useEffect
+  //   fetchDashboardData()
+  // }, [])
 
-  const fetchDashboardData = async () => {
-    const cleanedApiUrl = API_URL.replace(/\/$/, ""); // Remove a barra final de API_URL se existir
-    try {
-      // Buscar agendamentos de hoje
-      const todayResponse = await fetch(`${cleanedApiUrl}/appointments/today`)
-      const todayData = await todayResponse.json()
-      setAppointmentsToday(todayData)
+  // const fetchDashboardData = async () => { // Removida função fetchDashboardData
+  //   const cleanedApiUrl = API_URL.replace(/\/$/, "");
+  //   try {
+  //     // Buscar agendamentos de hoje
+  //     const todayResponse = await fetch(`${cleanedApiUrl}/appointments/today`)
+  //     const todayData = await todayResponse.json()
+  //     setAppointmentsToday(todayData)
 
-      // Buscar agendamentos de amanhã
-      const tomorrowResponse = await fetch(`${cleanedApiUrl}/appointments/tomorrow`)
-      const tomorrowData = await tomorrowResponse.json()
-      setAppointmentsTomorrow(tomorrowData)
+  //     // Buscar agendamentos de amanhã
+  //     const tomorrowResponse = await fetch(`${cleanedApiUrl}/appointments/tomorrow`)
+  //     const tomorrowData = await tomorrowResponse.json()
+  //     setAppointmentsTomorrow(tomorrowData)
 
-      // Buscar total de pacientes
-      const patientsResponse = await fetch(`${cleanedApiUrl}/dentists`)
-      const patientsData = await patientsResponse.json()
-      setTotalPatients(patientsData.length)
+  //     // Buscar total de pacientes
+  //     const patientsResponse = await fetch(`${cleanedApiUrl}/dentists`)
+  //     const patientsData = await patientsResponse.json()
+  //     setTotalPatients(patientsData.length)
 
-      // Calcular cadastros de hoje
-      const today = new Date().toISOString().split('T')[0]
-      const todayRegs = patientsData.filter(patient => 
-        patient.created_at && patient.created_at.startsWith(today)
-      ).length
-      setTodayRegistrations(todayRegs)
+  //     // Calcular cadastros de hoje
+  //     const today = new Date().toISOString().split('T')[0]
+  //     const todayRegs = patientsData.filter(patient =>
+  //       patient.created_at && patient.created_at.startsWith(today)
+  //     ).length
+  //     setTodayRegistrations(todayRegs)
 
-    } catch (error) {
-      console.error('Erro ao carregar dados do dashboard:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  //   } catch (error) {
+  //     console.error('Erro ao carregar dados do dashboard:', error)
+  //   } finally {
+  //     setLoading(false)
+  //   }
+  // }
 
-  const formatTime = (time) => {
-    return time.substring(0, 5) // Remove segundos se houver
-  }
+  // const formatTime = (time) => { // Removida função formatTime
+  //   return time.substring(0, 5)
+  // }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -93,8 +93,8 @@ const Dashboard = ({ onLogout }) => {
           <p className="text-gray-600">Cadastre, organize e acompanhe seus pacientes com eficiência em um painel pensado para dentistas.</p>
         </div>
 
-        {/* Módulos do Sistema - Todos os cards com altura uniforme e flexível */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        {/* Módulos do Sistema - Ajustado para melhor centralização e responsividade */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 max-w-5xl mx-auto">
           {/* Novo Cadastro */}
           <Link to="/cadastro" className="flex">
             <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-green-500 w-full flex flex-col">
@@ -228,89 +228,7 @@ const Dashboard = ({ onLogout }) => {
           </Link>
         </div>
 
-        {/* Dashboards de Agendamentos - Centralizados */}
-        <div className="flex justify-center mb-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-4xl w-full">
-            {/* Pacientes de Hoje */}
-            <Card className="shadow-lg">
-              <CardHeader className="bg-blue-600 text-white">
-                <CardTitle className="flex items-center space-x-2">
-                  <Calendar className="h-5 w-5" />
-                  <span>Pacientes de Hoje</span>
-                </CardTitle>
-                <CardDescription className="text-blue-100">
-                  {new Date().toLocaleDateString('pt-BR', { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-4">
-                {loading ? (
-                  <p className="text-gray-500">Carregando...</p>
-                ) : appointmentsToday.length > 0 ? (
-                  <div className="space-y-3">
-                    {appointmentsToday.map((appointment) => (
-                      <div key={appointment.id} className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
-                        <div>
-                          <p className="font-medium text-gray-800">{appointment.patient_name}</p>
-                          <p className="text-sm text-gray-600">Agendamento</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-blue-600">{formatTime(appointment.appointment_time)}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-center py-4">Nenhum agendamento para hoje</p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Pacientes de Amanhã */}
-            <Card className="shadow-lg">
-              <CardHeader className="bg-green-600 text-white">
-                <CardTitle className="flex items-center space-x-2">
-                  <CalendarDays className="h-5 w-5" />
-                  <span>Pacientes de Amanhã</span>
-                </CardTitle>
-                <CardDescription className="text-green-100">
-                  {new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleDateString('pt-BR', { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-4">
-                {loading ? (
-                  <p className="text-gray-500">Carregando...</p>
-                ) : appointmentsTomorrow.length > 0 ? (
-                  <div className="space-y-3">
-                    {appointmentsTomorrow.map((appointment) => (
-                      <div key={appointment.id} className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                        <div>
-                          <p className="font-medium text-gray-800">{appointment.patient_name}</p>
-                          <p className="text-sm text-gray-600">Agendamento</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-green-600">{formatTime(appointment.appointment_time)}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-center py-4">Nenhum agendamento para amanhã</p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
+        {/* Dashboards de Agendamentos removidos */}
 
       </main>
     </div>
