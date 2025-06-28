@@ -224,7 +224,7 @@ const Agendamento = () => {
             )}
           </div>
         </div>
-        <div className="text-center text-gray-500 text-sm font-medium">
+        <div className="text-center text-gray-500 text-sm font-medium break-words">
           {pacienteSelecionado ? `Paciente selecionado: ${buscaPaciente}` : "Ou digite o nome do novo paciente acima."}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
