@@ -31,6 +31,7 @@ const CadastroUsuario = () => {
     const token = localStorage.getItem('token');
 
     try {
+      // Removido /api/ assumindo que API_URL já contém /api
       const response = await fetch(`${API_URL}/usuarios`, {
         method: 'POST',
         headers: {

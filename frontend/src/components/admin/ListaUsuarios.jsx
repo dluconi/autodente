@@ -21,6 +21,7 @@ const ListaUsuarios = () => {
     }
     try {
       setLoading(true);
+      // Removido /api/ assumindo que API_URL já contém /api
       const response = await fetch(`${API_URL}/usuarios`, {
         headers: {
           'x-access-token': token,
@@ -52,6 +53,7 @@ const ListaUsuarios = () => {
   const handleToggleStatusUsuario = async (userId, currentStatus) => {
     const newStatus = currentStatus === 'ativo' ? 'inativo' : 'ativo';
     try {
+      // Removido /api/ assumindo que API_URL já contém /api
       const response = await fetch(`${API_URL}/usuarios/${userId}/status`, {
         method: 'PUT',
         headers: {
