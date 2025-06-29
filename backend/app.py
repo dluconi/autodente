@@ -95,6 +95,7 @@ class Usuario(db.Model):
     email = db.Column(db.String(100), unique=True, nullable=False) # Mantido único, mas não para login
     senha_hash = db.Column(db.String(255), nullable=False)
     perfil = db.Column(db.String(10), nullable=False, default='comum') # 'admin' ou 'comum'
+    status = db.Column(db.String(10), nullable=False, default='ativo') # Novo campo: 'ativo' ou 'inativo'
 
     # Relacionamentos para pagamentos
     pagamentos_registrados = db.relationship('Pagamento', foreign_keys='Pagamento.dentista_id', backref='dentista_que_registrou', lazy=True)
@@ -113,9 +114,10 @@ class Usuario(db.Model):
         return {
             'id': self.id,
             'username': self.username,
-            'nome': self.nome,
+            'nome': self.nome, # 'nome' é usado como nome completo para exibição
             'email': self.email,
-            'perfil': self.perfil
+            'perfil': self.perfil,
+            'status': self.status # Adicionado status
         }
 
 class Paciente(db.Model): # Renomeado de Patient para Paciente
@@ -407,7 +409,7 @@ def create_usuario(current_user):
     if not username or not nome or not email or not password:
         return jsonify({"success": False, "message": "Nome de usuário, nome, email e senha são obrigatórios."}), 400
 
-    if not is_valid_email(email): # Validação de email ainda é útil
+    if not is_valid_email(email):
         return jsonify({"success": False, "message": "Email inválido."}), 400
 
     if perfil not in ['admin', 'comum']:
@@ -420,6 +422,7 @@ def create_usuario(current_user):
         return jsonify({"success": False, "message": "Email já cadastrado."}), 409
 
     try:
+        # O status padrão é 'ativo' conforme definido no modelo
         novo_usuario = Usuario(username=username, nome=nome, email=email, perfil=perfil)
         novo_usuario.set_password(password)
         db.session.add(novo_usuario)
@@ -429,6 +432,121 @@ def create_usuario(current_user):
         db.session.rollback()
         app.logger.error(f"Erro ao cadastrar usuário: {str(e)}")
         return jsonify({"success": False, "message": "Erro interno ao cadastrar usuário."}), 500
+
+@app.route("/api/usuarios", methods=["GET"])
+@admin_required
+def get_usuarios(current_user):
+    try:
+        usuarios = Usuario.query.order_by(Usuario.nome).all()
+        return jsonify({"success": True, "usuarios": [usuario.to_dict() for usuario in usuarios]}), 200
+    except Exception as e:
+        app.logger.error(f"Erro ao buscar usuários: {str(e)}")
+        return jsonify({"success": False, "message": "Erro interno ao buscar usuários."}), 500
+
+@app.route("/api/usuarios/<int:user_id>/status", methods=["PUT"])
+@admin_required
+def update_usuario_status(current_user, user_id):
+    data = request.get_json()
+    novo_status = data.get('status')
+
+    if not novo_status or novo_status not in ['ativo', 'inativo']:
+        return jsonify({"success": False, "message": "Status inválido. Use 'ativo' ou 'inativo'."}), 400
+
+    usuario_alvo = Usuario.query.get(user_id)
+
+    if not usuario_alvo:
+        return jsonify({"success": False, "message": "Usuário não encontrado."}), 404
+
+    # Regra de segurança: não permitir que um admin desative a si próprio se for o único admin ativo.
+    if usuario_alvo.id == current_user.id and novo_status == 'inativo' and usuario_alvo.perfil == 'admin':
+        admins_ativos = Usuario.query.filter_by(perfil='admin', status='ativo').count()
+        if admins_ativos <= 1:
+            return jsonify({"success": False, "message": "Não é possível desativar o único administrador ativo do sistema."}), 403
+
+    # Não permitir desativar o usuário admin padrão se ele for o alvo e for o único admin
+    # Esta verificação é similar à de cima, mas mais explícita para o admin padrão.
+    if usuario_alvo.username == 'admin' and novo_status == 'inativo' and usuario_alvo.perfil == 'admin':
+        admins_ativos = Usuario.query.filter_by(perfil='admin', status='ativo').count()
+        if admins_ativos <= 1 and Usuario.query.filter_by(perfil='admin', status='ativo', id=usuario_alvo.id).count() == 1:
+             return jsonify({"success": False, "message": "Não é possível desativar o administrador principal se for o único ativo."}), 403
+
+
+    usuario_alvo.status = novo_status
+    try:
+        db.session.commit()
+        return jsonify({"success": True, "message": f"Status do usuário '{usuario_alvo.username}' atualizado para '{novo_status}'.", "usuario": usuario_alvo.to_dict()}), 200
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Erro ao atualizar status do usuário {user_id}: {str(e)}")
+        return jsonify({"success": False, "message": "Erro interno ao atualizar status do usuário."}), 500
+
+@app.route("/api/usuarios/<int:user_id>", methods=["PUT"])
+@admin_required
+def update_usuario(current_user, user_id):
+    usuario_alvo = Usuario.query.get_or_404(user_id)
+    data = request.get_json()
+
+    # Campos que podem ser atualizados
+    novo_username = data.get('username', usuario_alvo.username)
+    novo_nome = data.get('nome', usuario_alvo.nome)
+    novo_email = data.get('email', usuario_alvo.email)
+    novo_perfil = data.get('perfil', usuario_alvo.perfil)
+    # Senha não é atualizada aqui para simplicidade; status tem endpoint dedicado.
+
+    if not novo_username or not novo_nome or not novo_email:
+        return jsonify({"success": False, "message": "Username, nome e email são obrigatórios."}), 400
+
+    if not is_valid_email(novo_email):
+        return jsonify({"success": False, "message": "Email inválido."}), 400
+
+    if novo_perfil not in ['admin', 'comum']:
+        return jsonify({"success": False, "message": "Perfil inválido. Use 'admin' ou 'comum'."}), 400
+
+    # Verificar unicidade de username se ele foi alterado
+    if novo_username != usuario_alvo.username and Usuario.query.filter_by(username=novo_username).first():
+        return jsonify({"success": False, "message": "Novo nome de usuário já está em uso."}), 409
+
+    # Verificar unicidade de email se ele foi alterado
+    if novo_email != usuario_alvo.email and Usuario.query.filter_by(email=novo_email).first():
+        return jsonify({"success": False, "message": "Novo email já está em uso."}), 409
+
+    # Regra de segurança: não permitir que o último admin mude seu perfil para 'comum'
+    if usuario_alvo.perfil == 'admin' and novo_perfil == 'comum':
+        if usuario_alvo.status == 'ativo': # Só considera se o admin estiver ativo
+            admins_ativos = Usuario.query.filter_by(perfil='admin', status='ativo').count()
+            if admins_ativos <= 1 and usuario_alvo.id == current_user.id: # E se for o próprio admin tentando se rebaixar
+                 return jsonify({"success": False, "message": "Não é possível alterar o perfil do único administrador ativo para 'comum'."}), 403
+        # Se o admin que está sendo editado não é o que está logado, ou se há outros admins ativos, permite a mudança.
+        # Ou se o admin sendo editado está inativo, também permite.
+
+    usuario_alvo.username = novo_username
+    usuario_alvo.nome = novo_nome
+    usuario_alvo.email = novo_email
+    usuario_alvo.perfil = novo_perfil
+
+    # Nova senha (opcional)
+    nova_senha = data.get('password')
+    if nova_senha:
+        if len(nova_senha) < 6: # Exemplo de validação mínima de senha
+            return jsonify({"success": False, "message": "A nova senha deve ter pelo menos 6 caracteres."}), 400
+        usuario_alvo.set_password(nova_senha)
+
+    try:
+        db.session.commit()
+        return jsonify({"success": True, "message": "Usuário atualizado com sucesso.", "usuario": usuario_alvo.to_dict()}), 200
+    except IntegrityError as ie: # Captura erros de unicidade que podem ter passado
+        db.session.rollback()
+        app.logger.error(f"Erro de integridade ao atualizar usuário {user_id}: {str(ie)}")
+        # Mensagens mais específicas podem ser dadas baseadas no erro exato de 'ie'
+        if 'UNIQUE constraint failed: usuarios.username' in str(ie) or 'Duplicate entry' in str(ie).lower() and 'for key \'usuarios.username\'' in str(ie).lower():
+            return jsonify({"success": False, "message": "Nome de usuário já existe."}), 409
+        if 'UNIQUE constraint failed: usuarios.email' in str(ie) or 'Duplicate entry' in str(ie).lower() and 'for key \'usuarios.email\'' in str(ie).lower():
+            return jsonify({"success": False, "message": "Email já existe."}), 409
+        return jsonify({"success": False, "message": "Erro de integridade dos dados."}), 409
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Erro ao atualizar usuário {user_id}: {str(e)}")
+        return jsonify({"success": False, "message": "Erro interno ao atualizar usuário."}), 500
 
 
 @app.route("/api/pacientes", methods=["GET"]) # Renomeado de /api/patients para /api/pacientes
@@ -759,14 +877,31 @@ def create_appointment(current_user):
 @app.route("/api/appointments", methods=["GET"])
 @token_required
 def get_appointments(current_user):
+    appointments_query = Appointment.query
+
     if current_user.perfil == 'admin':
-        appointments = Appointment.query.all()
+        dentista_id_param = request.args.get('dentista_id', type=int)
+        if dentista_id_param:
+            # Admin está solicitando a agenda de um dentista específico
+            target_dentist = Usuario.query.filter_by(id=dentista_id_param, perfil='comum').first()
+            if not target_dentist:
+                return jsonify({"success": False, "message": f"Dentista com ID {dentista_id_param} não encontrado ou não é um usuário comum."}), 404
+            appointments_query = appointments_query.filter_by(dentista_id=dentista_id_param)
+        else:
+            # Admin não especificou dentista_id, retorna todos os agendamentos (comportamento padrão anterior)
+            # Ou poderia retornar uma lista vazia/mensagem para selecionar um dentista.
+            # Por enquanto, mantendo o retorno de todos.
+            pass # Nenhuma filtragem adicional por dentista_id se não for fornecido
     elif current_user.perfil == 'comum':
-        appointments = Appointment.query.filter_by(dentista_id=current_user.id).all()
+        # Usuário comum só pode ver seus próprios agendamentos
+        appointments_query = appointments_query.filter_by(dentista_id=current_user.id)
     else:
         return jsonify({"success": False, "message": "Perfil de usuário desconhecido."}), 403
 
-    return jsonify([appointment.to_dict() for appointment in appointments])
+    appointments = appointments_query.order_by(Appointment.appointment_date, Appointment.appointment_time).all()
+
+    # Adicionado success: True e a chave 'appointments' para consistência com outras rotas
+    return jsonify({"success": True, "appointments": [appointment.to_dict() for appointment in appointments]})
 
 @app.route("/api/appointments/today", methods=["GET"])
 @token_required
