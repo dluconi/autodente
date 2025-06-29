@@ -1,3 +1,4 @@
+import { useOutletContext } from "react-router-dom";
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -26,6 +27,7 @@ import { Stethoscope, ArrowLeft, Calendar, Search, Home, Trash2, Edit } from 'lu
 import API_URL from '../lib/api';
 
 // Helper function to check if a date string (YYYY-MM-DD) is in the past
+export default function Agendamento() {
 const isPastDate = (dateString) => {
   if (!dateString) return false;
   const today = new Date();
@@ -41,9 +43,7 @@ const isPastDate = (dateString) => {
   appointmentDate.setHours(0, 0, 0, 0);
 
   return appointmentDate < today;
-};
 
-const Agendamento = () => {
   const [pacientes, setPacientes] = useState([]);
   const [pacientesFiltrados, setPacientesFiltrados] = useState([]);
   const [pacienteSelecionadoId, setPacienteSelecionadoId] = useState(''); // Armazena ID
@@ -56,29 +56,18 @@ const Agendamento = () => {
   const [showBuscaResultados, setShowBuscaResultados] = useState(false); // Controla visibilidade dos resultados
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [dentistas, setDentistas] = useState([]); // Para admins selecionarem o dentista
-  const [dentistaSelecionadoId, setDentistaSelecionadoId] = useState(''); // Para admin
-
-  const { currentUser } = useOutletContext(); // Obter usuário logado
-
-  // Carregar pacientes e dentistas (se admin)
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    fetch(`${API_URL}/pacientes`, { headers: {'x-access-token': token }}) // Rota correta e token
-      .then(response => response.json())
-      .then(data => {
-        setPacientes(Array.isArray(data) ? data : []);
-        setPacientesFiltrados(Array.isArray(data) ? data : []);
+    if (currentUser?.perfil === "admin") {
+      fetch(`${API_URL}/dentistas`, {
+        headers: { "x-access-token": localStorage.getItem("token") }
       })
-      .catch(error => console.error('Erro ao carregar pacientes:', error));
-
-    if (currentUser && currentUser.perfil === 'admin') {
-      fetch(`${API_URL}/dentistas`, { headers: {'x-access-token': token }}) // Rota para listar dentistas
         .then(response => response.json())
-        .then(data => setDentistas(Array.isArray(data) ? data : []))
-        .catch(error => console.error('Erro ao carregar dentistas:', error));
+        .then(data => {
+          setDentistas(Array.isArray(data) ? data : []);
+        })
+        .catch(error => console.error("Erro ao carregar dentistas:", error));
     }
   }, [currentUser]);
-
   // Filtrar pacientes
   useEffect(() => {
     if (buscaPacienteInput.trim() === '') {
@@ -109,10 +98,7 @@ const Agendamento = () => {
     }
 
     setLoading(true);
-    const token = localStorage.getItem('token');
-
     let agendamentoPayload = {
-      appointment_date: dataAgendamento,
       appointment_time: horaAgendamento,
       observacao: observacao,
       duration_minutes: parseInt(duracao, 10),
@@ -132,7 +118,7 @@ const Agendamento = () => {
       // Se não há ID selecionado, o backend criará um paciente "pré-cadastro" com o nome fornecido
       agendamentoPayload.patient_name = buscaPacienteInput.trim();
     }
-    
+
     if (!agendamentoPayload.patient_id && !agendamentoPayload.patient_name) {
         toast.error('Nome do paciente ou ID é necessário.');
         setLoading(false);
@@ -196,7 +182,8 @@ const Agendamento = () => {
     setObservacao('');
     setDuracao('30');
     // Para admin, limpar seleção de dentista ou pré-selecionar se houver lógica para isso
-    if (currentUser && currentUser.perfil === 'admin') {
+
+    if (currentUser?.perfil === "admin") {
       setDentistaSelecionadoId('');
     }
     setIsModalOpen(true);
@@ -370,7 +357,7 @@ const Agendamento = () => {
           <h2 className="text-3xl font-bold text-gray-800 mb-2">Agenda de Consultas</h2>
           <p className="text-gray-600">Clique em um horário vago para agendar uma nova consulta.</p>
         </div>
-        
+
         {/* Calendario de Agendamentos ocupará toda a largura */}
         <div> {/* Removed lg:col-span-3 as main is not a grid container and this div will take full width by default */}
           <CalendarioAgendamentos onSlotClick={abrirModalAgendamento} />
@@ -391,7 +378,6 @@ const Agendamento = () => {
       </Dialog>
     </div>
   );
-};
 
 // Funções helper para manipulação de datas da semana
 const getInicioDaSemana = (date) => {
@@ -399,7 +385,6 @@ const getInicioDaSemana = (date) => {
   const day = d.getDay(); // 0 (Sun) - 6 (Sat)
   const diff = d.getDate() - day;
   return new Date(d.setDate(diff));
-};
 
 const getDiasDaSemana = (startDate) => {
   const week = [];
@@ -409,7 +394,6 @@ const getDiasDaSemana = (startDate) => {
     week.push(d);
   }
   return week;
-};
 
 const HORARIOS_DO_DIA = (() => {
   const horarios = [];
@@ -454,7 +438,6 @@ const updateAppointmentOnBackend = async (id, newDate, newTime, durationMinutes,
     console.error("Network error updating appointment:", error);
     return false;
   }
-};
 
 // New Component: AppointmentCard (for rendering the visual of an appointment)
 // It will now handle resizing internally.
@@ -651,7 +634,6 @@ const DraggableAppointmentItem = ({ agendamento, navigate, excluirAgendamento, o
       />
     </div>
   );
-};
 
 
 // New Component: DroppableSlot
@@ -669,7 +651,6 @@ const DroppableSlot = ({ id, children, className, onSlotClick, isOver }) => {
       {children}
     </div>
   );
-};
 
 
 // Componente do Calendario
@@ -692,24 +673,29 @@ const CalendarioAgendamentos = ({ onSlotClick }) => {
     })
   );
 
+    const fetchCalendarAppointments = async () => {
+      try {
+        setCalendarLoading(true);
+        const token = localStorage.getItem("token");
+        let url = `${API_URL}/appointments`;
+        if (currentUser && currentUser.perfil !== "admin") {
+          url = `${API_URL}/appointments/dentista/${currentUser.id}`;
   const fetchCalendarAppointments = async () => {
     try {
       setCalendarLoading(true);
-      const response = await fetch(`${API_URL}/appointments`);
+      const token = localStorage.getItem("token");
+      let url = `${API_URL}/appointments`;
+      if (currentUser && currentUser.perfil !== "admin") {
+        url = `${API_URL}/appointments/dentista/${currentUser.id}`;
+      }
+      const response = await fetch(url, { headers: { "x-access-token": token } });
       const data = await response.json();
-      setCalendarAppointments(data || []);
     } catch (error) {
-      console.error('Erro ao carregar agendamentos:', error);
+      console.error("Erro ao carregar agendamentos:", error);
       setCalendarAppointments([]);
-    } finally {
-      setCalendarLoading(false);
-    }
-  };
-
   useEffect(() => {
     fetchCalendarAppointments();
   }, [diaReferencia]);
-
 
   const handleDragStart = (event) => {
     setActiveId(event.active.id);
@@ -1034,6 +1020,4 @@ const CalendarioAgendamentos = ({ onSlotClick }) => {
       </DragOverlay>
     </DndContext>
   );
-};
 
-export default Agendamento;
