@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card"; // Removido CardHeader, CardTitle, CardDescription
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import API_URL from '../../lib/api';
@@ -64,13 +64,18 @@ const CadastroUsuario = () => {
   };
 
   return (
-    <div className="container mx-auto p-4 md:p-6 lg:p-8">
+    // O div container pode ser removido se o AppLayout já fornecer padding suficiente,
+    // mas vamos mantê-lo por enquanto para garantir que o max-w-lg funcione como esperado dentro do main do AppLayout.
+    // Se o AppLayout já tiver padding, e o <main> for o container direto, este div pode ser redundante.
+    // Por agora, a principal mudança é remover o CardHeader.
+    // O `container mx-auto` aqui pode estar em conflito ou ser redundante com o `max-w-7xl mx-auto` do AppLayout.
+    // O card em si já tem `mx-auto`, então ele se centralizará no seu container pai.
+    // Se o pai (do AppLayout) já tem padding e max-width, este container pode não ser necessário.
+    // Vamos simplificar removendo o div container e o padding, confiando no AppLayout.
+    // <div className="container mx-auto p-4 md:p-6 lg:p-8">
       <Card className="w-full max-w-lg mx-auto">
-        <CardHeader>
-          <CardTitle>Cadastrar Novo Usuário</CardTitle>
-          <CardDescription>Crie contas para dentistas ou administradores do sistema.</CardDescription>
-        </CardHeader>
-        <CardContent>
+        {/* CardHeader removido pois o título agora vem do AppLayout */}
+        <CardContent className="pt-6"> {/* Adicionado padding superior ao CardContent já que não há CardHeader */}
           {error && (
             <Alert variant="destructive" className="mb-4">
               <AlertDescription>{error}</AlertDescription>
@@ -143,7 +148,7 @@ const CadastroUsuario = () => {
           </form>
         </CardContent>
       </Card>
-    </div>
+    // </div>
   );
 };
 
