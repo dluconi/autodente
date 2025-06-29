@@ -85,23 +85,38 @@ const Orcamento = () => {
   ]
 
   useEffect(() => {
-    fetchPatients()
-  }, [])
+    fetchPatients();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Adicionado comentário para desabilitar warning de exhaustive-deps se fetchPatients não mudar e não precisar de token aqui,
+  // mas idealmente, se fetchPatients precisasse de token, token seria uma dependência.
 
   useEffect(() => {
-    const total = formData.procedimentos.reduce((sum, proc) => sum + parseFloat(proc.valor || 0), 0)
-    setPaymentData(prev => ({ ...prev, valorTotal: total }))
-  }, [formData.procedimentos])
+    const total = formData.procedimentos.reduce((sum, proc) => sum + parseFloat(proc.valor || 0), 0);
+    setPaymentData(prev => ({ ...prev, valorTotal: total }));
+  }, [formData.procedimentos]);
 
   const fetchPatients = async () => {
-    try {
-      const response = await fetch(`${API_URL}/patients`)
-      const data = await response.json()
-      setPatients(data)
-    } catch (err) {
-      console.error('Erro ao carregar pacientes:', err)
+    const token = localStorage.getItem('token'); // Adicionado para autenticação
+    if (!token) {
+      setMessage('Usuário não autenticado para buscar pacientes.');
+      setMessageType('error');
+      return;
     }
-  }
+    try {
+      // Corrigido para /api/pacientes e adicionado token
+      const response = await fetch(`${API_URL}/api/pacientes`, { headers: { 'x-access-token': token } });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({ message: `Erro HTTP: ${response.status}` }));
+        throw new Error(errData.message || `Erro ao buscar pacientes: ${response.statusText}`);
+      }
+      const data = await response.json();
+      setPatients(Array.isArray(data) ? data : []); // API de pacientes retorna um array diretamente
+    } catch (err) {
+      console.error('Erro ao carregar pacientes:', err);
+      setMessage('Erro ao carregar pacientes: ' + (err.message || 'Erro desconhecido'));
+      setMessageType('error');
+    }
+  };
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -192,17 +207,25 @@ const Orcamento = () => {
         clinic_name: formData.clinica,
         observations: formData.observacoes,
         procedures: formData.procedimentos
+      };
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setMessage('Usuário não autenticado para salvar orçamento.');
+        setMessageType('error');
+        setLoading(false);
+        return;
       }
 
-      const response = await fetch(`${API_URL}/budgets`, {
+      const response = await fetch(`${API_URL}/api/budgets`, { // Corrigido para /api/budgets
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-access-token': token, // Adicionado token
         },
         body: JSON.stringify(budgetData),
-      })
+      });
 
-      const result = await response.json()
+      const result = await response.json();
 
       if (result.success) {
         setMessage('Orçamento salvo com sucesso!')
@@ -251,28 +274,35 @@ const Orcamento = () => {
         clinic_name: formData.clinica,
         observations: formData.observacoes,
         procedures: formData.procedimentos
+      };
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('Usuário não autenticado para aprovar orçamento.');
+        return;
       }
 
-      const response = await fetch(`${API_URL}/budgets`, {
+      const response = await fetch(`${API_URL}/api/budgets`, { // Corrigido para /api/budgets
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-access-token': token, // Adicionado token
         },
         body: JSON.stringify(budgetData),
-      })
+      });
 
-      const result = await response.json()
+      const result = await response.json();
 
       if (result.success) {
         // Aprovar o orçamento
-        const approveResponse = await fetch(`${API_URL}/budgets/${result.budget.id}/approve`, {
+        const approveResponse = await fetch(`${API_URL}/api/budgets/${result.budget.id}/approve`, { // Corrigido para /api/budgets
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'x-access-token': token, // Adicionado token
           },
-        })
+        });
 
-        const approveResult = await approveResponse.json()
+        const approveResult = await approveResponse.json();
 
         if (approveResult.success) {
           alert('Orçamento aprovado e salvo com sucesso!')

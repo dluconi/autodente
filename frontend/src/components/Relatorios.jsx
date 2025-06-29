@@ -20,8 +20,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"; // Adicionado Textarea
 
 const Relatorios = () => {
-  const [pacientes, setPacientes] = useState([]); // Este estado já armazena os pacientes buscados
-  const [loading, setLoading] = useState(false); // Loading para a lista de pacientes da página
+  const [pacientes, setPacientes] = useState([]); // Para o relatório de pacientes
+  const [listaDentistas, setListaDentistas] = useState([]); // Para o seletor de dentistas no atestado
+  const [loadingPacientes, setLoadingPacientes] = useState(false);
+  const [loadingDentistas, setLoadingDentistas] = useState(false);
   const [isAtestadoModalOpen, setIsAtestadoModalOpen] = useState(false);
   const [atestadoGeradoTexto, setAtestadoGeradoTexto] = useState('');
   const [mostrarVisualizacaoAtestado, setMostrarVisualizacaoAtestado] = useState(false);
@@ -43,6 +45,7 @@ const Relatorios = () => {
 
   // Estados para os campos do formulário de Atestado
   const [atestadoForm, setAtestadoForm] = useState(initialAtestadoFormState);
+  const token = localStorage.getItem('token'); // Obter token para chamadas API
 
   const handleAtestadoFormChange = (field, value) => {
     if (field === 'pacienteId') {
@@ -50,52 +53,75 @@ const Relatorios = () => {
       if (pacienteSelecionado) {
         setAtestadoForm(prev => ({
           ...prev,
-          [field]: value,
+          pacienteId: value, // Mantém o ID
           pacienteNome: `${pacienteSelecionado.nome || ''} ${pacienteSelecionado.sobrenome || ''}`.trim(),
-          pacienteRG: pacienteSelecionado.rg || '', // Assumindo que o paciente tem um campo 'rg'
+          pacienteRG: pacienteSelecionado.rg || '',
         }));
       } else {
-        // Paciente não encontrado ou valor de placeholder selecionado
-        setAtestadoForm(prev => ({
-          ...prev,
-          [field]: value,
-          pacienteNome: '',
-          pacienteRG: '',
-        }));
+        setAtestadoForm(prev => ({ ...prev, pacienteId: value, pacienteNome: '', pacienteRG: '' }));
       }
-    } else {
+    } else if (field === 'dentista') {
+       const dentistaSelecionado = listaDentistas.find(d => d.id.toString() === value);
+       setAtestadoForm(prev => ({
+         ...prev,
+         dentista: value, // Armazena o ID
+         // Se precisar do nome do dentista para algo além do texto final, pode armazenar aqui também
+       }));
+    }
+    else {
       setAtestadoForm(prev => ({ ...prev, [field]: value }));
     }
   };
 
-  // Mock de dentistas e horários (dentistas será substituído ou virá do usuário logado)
-  const dentistasMock = [
-    { id: '1', nome: 'Dr. Carlos Alberto' },
-    { id: '2', nome: 'Dra. Ana Beatriz' },
-    { id: '3', nome: 'Dr. Lucca Spinelli' },
-  ];
-
-  const horariosConsulta = Array.from({ length: 12 }, (_, i) => { // 08:00 to 19:00
-    const hour = String(i + 8).padStart(2, '0');
-    return `${hour}:00`;
+  const horariosConsulta = Array.from({ length: 23 }, (_, i) => { // 07:00 to 18:30
+    const hour = Math.floor(i / 2) + 7;
+    const minute = (i % 2) * 30;
+    return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
   });
 
 
   useEffect(() => {
     fetchPacientes();
-  }, []);
+    fetchDentistas();
+  }, [token]); // Adicionado token como dependência
 
   const fetchPacientes = async () => {
-    setLoading(true);
+    if (!token) return;
+    setLoadingPacientes(true);
     try {
-      const response = await fetch(`${API_URL}/dentists`);
+      const response = await fetch(`${API_URL}/api/pacientes`, { headers: { 'x-access-token': token } });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || `Erro HTTP ${response.status} ao buscar pacientes`);
+      }
       const data = await response.json();
-      setPacientes(data);
+      // O backend GET /api/pacientes retorna um array diretamente
+      setPacientes(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Erro ao buscar pacientes:', error);
       // Adicionar feedback para o usuário aqui, se necessário
     } finally {
-      setLoading(false);
+      setLoadingPacientes(false);
+    }
+  };
+
+  const fetchDentistas = async () => {
+    if (!token) return;
+    setLoadingDentistas(true);
+    try {
+      // Corrigido para /api/dentistas
+      const response = await fetch(`${API_URL}/api/dentistas`, { headers: { 'x-access-token': token } });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || `Erro HTTP ${response.status} ao buscar dentistas`);
+      }
+      const data = await response.json();
+      // API /api/dentistas retorna um array diretamente
+      setListaDentistas(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Erro ao buscar dentistas:', error);
+    } finally {
+      setLoadingDentistas(false);
     }
   };
 
@@ -170,8 +196,8 @@ const Relatorios = () => {
     const dataAtualFormatada = `${dia}/${mes}/${ano}`;
 
     // Obter nome do dentista
-    const dentistaSelecionado = dentistasMock.find(d => d.id === dentistaId);
-    const nomeDentista = dentistaSelecionado ? dentistaSelecionado.nome : "Nome do Dentista Não Encontrado";
+    const dentistaSelecionadoObject = listaDentistas.find(d => d.id.toString() === dentistaId);
+    const nomeDentista = dentistaSelecionadoObject ? dentistaSelecionadoObject.nome : "Nome do Dentista Não Encontrado";
 
     // Mapear período para texto
     const periodoMap = {
@@ -224,13 +250,13 @@ ${nomeDentista}
         </p>
         <Button
           onClick={gerarPDFPacientes}
-          disabled={loading || pacientes.length === 0}
+          disabled={loadingPacientes || pacientes.length === 0}
           className="bg-blue-600 hover:bg-blue-700 text-white"
         >
           <Download className="mr-2 h-4 w-4" />
-          {loading ? 'Carregando pacientes...' : 'Gerar PDF de Pacientes'}
+          {loadingPacientes ? 'Carregando pacientes...' : 'Gerar PDF de Pacientes'}
         </Button>
-        {pacientes.length === 0 && !loading && (
+        {pacientes.length === 0 && !loadingPacientes && (
           <p className="text-sm text-red-500 mt-2">Nenhum paciente encontrado para gerar o relatório.</p>
         )}
       </div>
@@ -292,9 +318,15 @@ ${nomeDentista}
                   <SelectValue placeholder="Selecione o dentista" />
                 </SelectTrigger>
                 <SelectContent>
-                  {dentistasMock.map(d => (
-                    <SelectItem key={d.id} value={d.id}>{d.nome}</SelectItem>
-                  ))}
+                  {loadingDentistas ? (
+                    <SelectItem value="" disabled>Carregando dentistas...</SelectItem>
+                  ) : listaDentistas.length > 0 ? (
+                    listaDentistas.map(d => (
+                      <SelectItem key={d.id} value={d.id.toString()}>{d.nome}</SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="" disabled>Nenhum dentista encontrado</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -345,7 +377,9 @@ ${nomeDentista}
                   <SelectValue placeholder="Selecione o paciente" />
                 </SelectTrigger>
                 <SelectContent>
-                  {pacientes.length > 0 ? (
+                  {loadingPacientes ? (
+                     <SelectItem value="" disabled>Carregando pacientes...</SelectItem>
+                  ) : pacientes.length > 0 ? (
                     pacientes.map(p => (
                       <SelectItem key={p.id} value={p.id.toString()}>
                         {`${p.nome || ''} ${p.sobrenome || ''}`.trim()}

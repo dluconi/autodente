@@ -49,30 +49,56 @@ const HistoricoPaciente = () => {
   }, [searchTerm, patients])
 
   const fetchPatients = async () => {
+    const token = localStorage.getItem('token'); // Adicionado para autenticação
+    if (!token) {
+      setError('Usuário não autenticado para buscar pacientes.');
+      setLoading(false);
+      return;
+    }
     try {
-      const response = await fetch(`${API_URL}/patients`)
-      const data = await response.json()
-      setPatients(data)
-      setFilteredPatients(data)
+      // Corrigido para /api/pacientes e adicionado token
+      const response = await fetch(`${API_URL}/api/pacientes`, { headers: { 'x-access-token': token } });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({ message: `Erro HTTP: ${response.status}` }));
+        throw new Error(errData.message || `Erro ao buscar pacientes: ${response.statusText}`);
+      }
+      const data = await response.json();
+      setPatients(Array.isArray(data) ? data : []); // API de pacientes retorna um array diretamente
+      setFilteredPatients(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError('Erro ao carregar pacientes')
+      setError('Erro ao carregar pacientes: ' + (err.message || 'Erro desconhecido'));
+      console.error('Erro ao carregar pacientes:', err);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   const fetchPatientHistories = async (patientId) => {
+    const token = localStorage.getItem('token'); // Adicionado para autenticação
+    if (!token) {
+      setError('Usuário não autenticado para buscar históricos.');
+      return;
+    }
     try {
-      const response = await fetch(`${API_URL}/historico/patient/${patientId}`)
+      // Corrigido para /api/historico e adicionado token
+      const response = await fetch(`${API_URL}/api/historico/patient/${patientId}`, { headers: { 'x-access-token': token } });
       if (response.ok) {
-        const data = await response.json()
-	setPatientHistories(data.historicos || [])
+        const data = await response.json();
+        if (data.success) {
+          setPatientHistories(data.historicos || []);
+        } else {
+          setPatientHistories([]);
+          console.error('Falha ao buscar históricos da API:', data.message);
+        }
       } else {
-        setPatientHistories([])
+        const errData = await response.json().catch(() => ({ message: `Erro HTTP: ${response.status}` }));
+        console.error('Erro HTTP ao buscar históricos:', errData.message || response.statusText);
+        setPatientHistories([]);
       }
     } catch (err) {
-      console.error('Erro ao carregar históricos:', err)
-      setPatientHistories([])
+      console.error('Erro de conexão ao carregar históricos:', err);
+      setError('Erro de conexão ao carregar históricos.');
+      setPatientHistories([]);
     }
   }
 
@@ -148,18 +174,45 @@ const HistoricoPaciente = () => {
       }
 
       let response
+      const token = localStorage.getItem('token'); // Adicionado para autenticação
+      if (!token) {
+        setError('Usuário não autenticado para salvar histórico.');
+        setSaving(false);
+        return;
+      }
+
+      const headers = { 'x-access-token': token }; // Não definir Content-Type quando usando FormData
+
       if (editingHistory) {
-        // Atualizar histórico existente
-        response = await fetch(`${API_URL}/historico/${editingHistory.id}`, {
-          method: 'PUT',
+        // Atualizar histórico existente - Backend não tem rota PUT /api/historico/:id implementada
+        // Assumindo que a criação (POST) pode lidar com "upsert" ou que uma rota PUT precisa ser criada.
+        // Por ora, vamos focar em corrigir a chamada de POST.
+        // Se PUT for necessário, o backend precisará de: @app.route('/api/historico/<int:historico_id>', methods=['PUT'])
+        // E este código precisaria ser ajustado.
+        // Por enquanto, vamos alertar que a edição não está totalmente implementada se for o caso.
+        // Para este exercício, vamos assumir que o POST /api/historico pode ser usado para criar, e não há edição de histórico aqui.
+        // Se a edição fosse por este mesmo endpoint, seria POST e o backend faria a lógica de upsert.
+        // Como o backend atual só tem POST /api/historico, a edição não está funcional.
+        // Vamos focar em fazer o POST funcionar corretamente.
+        // Se a intenção é apenas criar, e não editar por este formulário:
+        if(editingHistory) {
+            setError("A funcionalidade de editar histórico ainda não está implementada no backend.");
+            setSaving(false);
+            return;
+        }
+        response = await fetch(`${API_URL}/api/historico`, { // Corrigido para /api/historico
+          method: 'POST',
+          headers: headers,
           body: formData
-        })
+        });
+
       } else {
         // Criar novo histórico
-        response = await fetch(`${API_URL}/historico`, {
+        response = await fetch(`${API_URL}/api/historico`, { // Corrigido para /api/historico
           method: 'POST',
+          headers: headers,
           body: formData
-        })
+        });
       }
 
       if (response.ok) {
