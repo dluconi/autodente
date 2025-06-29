@@ -59,53 +59,65 @@ export default function Agendamento() {
   const [dentistaAgendamentoFormId, setDentistaAgendamentoFormId] = useState('');
   const { currentUser, token } = useOutletContext();
 
+  // console.log("[Debug] Agendamento Component Render: currentUser id:", currentUser?.id, "token exists:", !!token);
+
   useEffect(() => {
+    // console.log("[Debug] useEffect Dentistas - Triggered. currentUser?.perfil:", currentUser?.perfil, "Token exists:", !!token);
     if (currentUser?.perfil === "admin" && token) {
-      // Carrega a lista de dentistas para o admin poder selecionar qual agenda visualizar ou para quem agendar.
-      // Removido /api/ assumindo que API_URL já contém /api
       fetch(`${API_URL}/dentistas`, {
         headers: { "x-access-token": token }
       })
         .then(response => {
+          // console.log("[Debug] /dentistas response status:", response.status);
           if (!response.ok) {
+            // response.text().then(text => console.error("[Debug] /dentistas response error body:", text));
             throw new Error(`Falha ao buscar dentistas: ${response.statusText}`);
           }
           return response.json();
         })
         .then(data => {
-          console.log("Dentistas recebidos:", data); // Para depuração
-          setDentistas(Array.isArray(data) ? data : []);
-          if (!Array.isArray(data)) {
-            console.warn("/api/dentistas não retornou um array. Dados:", data);
-            toast.error("Formato inesperado de dados dos dentistas.");
+          // console.log("[Debug] Dentistas recebidos RAW:", data);
+          if (Array.isArray(data)) {
+            setDentistas(data);
+            // console.log(`[Debug] setDentistas chamado com ${data.length} itens.`);
+          } else {
+            console.warn("/api/dentistas não retornou um array. Dados:", data); // Manter este warn
+            toast.error("Formato inesperado de dados dos dentistas recebido do servidor.");
+            setDentistas([]);
           }
         })
         .catch(error => {
-          console.error("Erro ao carregar dentistas:", error);
-          toast.error(`Erro ao carregar dentistas: ${error.message}`);
-          setDentistas([]); // Garante que seja um array vazio em caso de erro
+          console.error("Erro CRÍTICO ao carregar dentistas:", error); // Manter este error
+          toast.error(`Erro CRÍTICO ao carregar dentistas: ${error.message}`);
+          setDentistas([]);
         });
+    } else {
+      // console.log("[Debug] useEffect Dentistas: Condição para fetch NÃO MET. currentUser?.perfil:", currentUser?.perfil, "Token exists:", !!token);
+      if (currentUser?.perfil !== "admin") {
+        setDentistas([]);
+      }
     }
   }, [currentUser, token]);
 
   useEffect(() => {
     const carregarPacientes = async () => {
-      if (!token) return;
-        try {
-            // Removido /api/ assumindo que API_URL já contém /api
-            const response = await fetch(`${API_URL}/pacientes`, { headers: { "x-access-token": token } });
-            if (!response.ok) throw new Error('Falha ao buscar pacientes');
-            const data = await response.json();
-            // O backend GET /api/pacientes retorna diretamente um array.
-            // Ajuste anterior para data.pacientes era por precaução, mas o backend atual não o usa.
-            setPacientes(Array.isArray(data) ? data : []);
-            setPacientesFiltrados(Array.isArray(data) ? data : []);
-        } catch (error) {
-            console.error("Erro ao carregar pacientes:", error);
-            toast.error("Falha ao carregar lista de pacientes.");
-            setPacientes([]);
-            setPacientesFiltrados([]);
         }
+        const data = await response.json();
+        // console.log("[Debug] Pacientes recebidos RAW:", data);
+        if (Array.isArray(data)) {
+          setPacientes(data);
+          // console.log(`[Debug] setPacientes chamado com ${data.length} itens.`);
+        } else {
+          console.warn("/api/pacientes não retornou um array. Dados:", data); // Manter este warn
+          toast.error("Formato inesperado de dados dos pacientes recebido do servidor.");
+          setPacientes([]);
+        }
+      } catch (error) {
+        console.error("Erro CRÍTICO ao carregar pacientes:", error); // Manter este error
+        toast.error(`Erro CRÍTICO ao carregar lista de pacientes: ${error.message}`);
+        setPacientes([]);
+        setPacientesFiltrados([]);
+      }
     };
     carregarPacientes();
   }, [token]);
@@ -115,47 +127,52 @@ export default function Agendamento() {
     return cpf ? cpf.replace(/[^\d]/g, '') : '';
   };
 
-  // useEffect para debounce
+  // useEffect para debounce (Reintroduzido)
   useEffect(() => {
+    // console.log("[Debug] useEffect Debounce: searchTerm mudou para:", searchTerm);
     const timerId = setTimeout(() => {
+      // console.log("[Debug] useEffect Debounce: TIMEOUT - setDebouncedSearchTerm para:", searchTerm);
       setDebouncedSearchTerm(searchTerm);
     }, 500); // 500ms de debounce
 
     return () => {
+      // console.log("[Debug] useEffect Debounce: CLEAR - limpando timer para searchTerm:", searchTerm);
       clearTimeout(timerId);
     };
   }, [searchTerm]);
 
+  // useEffect de filtragem de pacientes (usando debouncedSearchTerm)
   useEffect(() => {
-    const termoBusca = debouncedSearchTerm.trim();
+    const termoParaFiltrar = debouncedSearchTerm.trim();
+    // console.log("[Debug] useEffect Filtro Pacientes: debouncedSearchTerm=", termoParaFiltrar, "pacientes=", pacientes?.length);
 
-    if (termoBusca === '') {
-      // Mostra todos os pacientes se o termo de busca debounced (e o visual) estiverem vazios
-      setPacientesFiltrados(searchTerm.trim() === '' ? pacientes : []);
-      return;
+    if (termoParaFiltrar === '') {
+      setPacientesFiltrados([]); // Não mostrar sugestões se a busca debounced estiver vazia
+    } else {
+      const lowerBusca = termoParaFiltrar.toLowerCase();
+      const cpfBuscaNormalizado = normalizeCpf(termoParaFiltrar);
+
+      const filtrados = pacientes.filter(p => {
+        const nomeCompleto = `${p.nome} ${p.sobrenome || ''}`.toLowerCase();
+        const cpfPacienteNormalizado = normalizeCpf(p.cpf);
+        const nomeIndividual = p.nome.toLowerCase();
+        const sobrenomeIndividual = p.sobrenome ? p.sobrenome.toLowerCase() : '';
+        return (
+          nomeCompleto.includes(lowerBusca) ||
+          nomeIndividual.includes(lowerBusca) ||
+          (sobrenomeIndividual && sobrenomeIndividual.includes(lowerBusca)) ||
+          (cpfPacienteNormalizado && cpfBuscaNormalizado && cpfPacienteNormalizado.includes(cpfBuscaNormalizado))
+        );
+      });
+      // console.log("[Debug] Pacientes filtrados (debounced):", filtrados);
+      setPacientesFiltrados(filtrados);
     }
+  }, [debouncedSearchTerm, pacientes]);
 
-    const lowerBusca = termoBusca.toLowerCase();
-    const cpfBuscaNormalizado = normalizeCpf(termoBusca);
-
-    const filtrados = pacientes.filter(p => {
-      const nomeCompleto = `${p.nome} ${p.sobrenome || ''}`.toLowerCase();
-      const cpfPacienteNormalizado = normalizeCpf(p.cpf);
-      const nomeIndividual = p.nome.toLowerCase();
-      const sobrenomeIndividual = p.sobrenome ? p.sobrenome.toLowerCase() : '';
-
-      return (
-        nomeCompleto.includes(lowerBusca) ||
-        nomeIndividual.includes(lowerBusca) ||
-        (sobrenomeIndividual && sobrenomeIndividual.includes(lowerBusca)) ||
-        (cpfPacienteNormalizado && cpfBuscaNormalizado && cpfPacienteNormalizado.includes(cpfBuscaNormalizado))
-      );
-    });
-    setPacientesFiltrados(filtrados);
-  }, [debouncedSearchTerm, pacientes, searchTerm]);
 
   const handleAgendar = async () => {
-    if (!pacienteSelecionadoId && !searchTerm.trim()) { // Usa searchTerm aqui
+    // Usa searchTerm para o nome do novo paciente, pois é o valor mais atual do input
+    if (!pacienteSelecionadoId && !searchTerm.trim()) {
       toast.error('Por favor, selecione ou digite o nome do paciente.');
       return;
     }
@@ -428,7 +445,12 @@ export default function Agendamento() {
       </main>
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-lg">
-          <DialogHeader><DialogTitle className="flex items-center space-x-2"><Calendar className="h-5 w-5" /><span>Novo Agendamento</span></DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2"><Calendar className="h-5 w-5" /><span>Novo Agendamento</span></DialogTitle>
+            <DialogDescription className="sr-only">
+              Preencha os detalhes abaixo para criar um novo agendamento.
+            </DialogDescription>
+          </DialogHeader>
           <AgendamentoForm />
         </DialogContent>
       </Dialog>
