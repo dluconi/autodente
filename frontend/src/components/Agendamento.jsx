@@ -338,7 +338,8 @@ export default function Agendamento() {
                 <SelectValue placeholder="Selecione um dentista para ver a agenda" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos os Dentistas (Visão Geral)</SelectItem> {/* Opção para ver todos, se desejado */}
+                {/* Corrigido: Usar um valor não vazio para a opção "Todos" */}
+                <SelectItem value="all">Todos os Dentistas (Visão Geral)</SelectItem>
                 {dentistas.filter(d => d.perfil === 'comum').map(dentista => (
                   <SelectItem key={dentista.id} value={dentista.id.toString()}>
                     {dentista.nome}
@@ -346,17 +347,28 @@ export default function Agendamento() {
                 ))}
               </SelectContent>
             </Select>
-            {adminVisualizandoDentistaId && (
+            {adminVisualizandoDentistaId && adminVisualizandoDentistaId !== "all" && (
                 <p className="text-sm text-gray-600 mt-2">
                     Visualizando agenda de: <strong>{dentistas.find(d => d.id.toString() === adminVisualizandoDentistaId)?.nome || ''}</strong>
                 </p>
+            )}
+            {adminVisualizandoDentistaId === "all" && (
+              <p className="text-sm text-gray-600 mt-2">
+                  Visualizando agenda de: <strong>Todos os Dentistas</strong>
+              </p>
             )}
           </div>
         )}
 
         <div><CalendarioAgendamentos
               onSlotClick={abrirModalAgendamento}
-              dentistaIdParaVisualizacao={currentUser?.perfil === 'admin' ? adminVisualizandoDentistaId : currentUser?.id}
+              // Passa 'null' ou um valor que o backend entenda como "todos" se 'all' for selecionado.
+              // Ou modifica fetchCalendarAppointments para tratar 'all' e não enviar dentista_id.
+              dentistaIdParaVisualizacao={
+                currentUser?.perfil === 'admin'
+                  ? (adminVisualizandoDentistaId === "all" ? "" : adminVisualizandoDentistaId)
+                  : currentUser?.id
+              }
             />
         </div>
       </main>
@@ -515,11 +527,12 @@ const CalendarioAgendamentos = ({ onSlotClick, dentistaIdParaVisualizacao }) => 
       const params = new URLSearchParams();
 
       if (currentUser?.perfil === 'admin') {
-        if (dentistaIdParaVisualizacao) { // Se um ID de dentista específico foi passado para visualização
+        // dentistaIdParaVisualizacao pode ser um ID numérico ou uma string vazia "" (para "todos" vindo do seletor)
+        if (dentistaIdParaVisualizacao && dentistaIdParaVisualizacao !== "") {
           params.append('dentista_id', dentistaIdParaVisualizacao);
         }
-        // Se admin e dentistaIdParaVisualizacao for "" (string vazia, para "Todos"), não adiciona o parâmetro,
-        // e o backend (como modificado) retornará todos os agendamentos.
+        // Se dentistaIdParaVisualizacao for "" (string vazia), não adiciona o parâmetro 'dentista_id'.
+        // O backend já foi ajustado para retornar todos os agendamentos se for admin e nenhum dentista_id for fornecido.
       } else if (currentUser?.perfil === 'comum') {
         // Para usuário comum, sempre filtra pela sua própria ID.
         // O backend já faz isso se nenhum dentista_id é passado e o perfil não é admin,
