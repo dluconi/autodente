@@ -76,9 +76,11 @@ export default function Agendamento() {
     const carregarPacientes = async () => {
       if (!token) return;
         try {
-            const response = await fetch(`${API_URL}/pacientes`, { headers: { "x-access-token": token } });
+            const response = await fetch(`${API_URL}/api/pacientes`, { headers: { "x-access-token": token } });
             if (!response.ok) throw new Error('Falha ao buscar pacientes');
             const data = await response.json();
+            // O backend GET /api/pacientes retorna diretamente um array.
+            // Ajuste anterior para data.pacientes era por precaução, mas o backend atual não o usa.
             setPacientes(Array.isArray(data) ? data : []);
             setPacientesFiltrados(Array.isArray(data) ? data : []);
         } catch (error) {
