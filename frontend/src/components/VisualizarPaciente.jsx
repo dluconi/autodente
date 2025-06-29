@@ -259,7 +259,7 @@ const VisualizarPaciente = () => {
                   <p className="text-sm text-blue-600 font-medium">Endodontista</p>
                 </div>
               </div>
-              <Link to="/consulta">
+              <Link to="/consulta-pacientes">
                 <Button variant="ghost" size="sm" className="flex items-center space-x-2">
                   <ArrowLeft className="h-4 w-4" />
                   <span>Voltar</span>
