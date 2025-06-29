@@ -89,7 +89,8 @@ const Relatorios = () => {
     if (!token) return;
     setLoadingPacientes(true);
     try {
-      const response = await fetch(`${API_URL}/api/pacientes`, { headers: { 'x-access-token': token } });
+      // Removido /api/ assumindo que API_URL já contém /api
+      const response = await fetch(`${API_URL}/pacientes`, { headers: { 'x-access-token': token } });
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
         throw new Error(errData.message || `Erro HTTP ${response.status} ao buscar pacientes`);
@@ -109,8 +110,8 @@ const Relatorios = () => {
     if (!token) return;
     setLoadingDentistas(true);
     try {
-      // Corrigido para /api/dentistas
-      const response = await fetch(`${API_URL}/api/dentistas`, { headers: { 'x-access-token': token } });
+      // Removido /api/ assumindo que API_URL já contém /api
+      const response = await fetch(`${API_URL}/dentistas`, { headers: { 'x-access-token': token } });
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
         throw new Error(errData.message || `Erro HTTP ${response.status} ao buscar dentistas`);

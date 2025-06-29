@@ -56,8 +56,8 @@ const HistoricoPaciente = () => {
       return;
     }
     try {
-      // Corrigido para /api/pacientes e adicionado token
-      const response = await fetch(`${API_URL}/api/pacientes`, { headers: { 'x-access-token': token } });
+      // Removido /api/ e adicionado token
+      const response = await fetch(`${API_URL}/pacientes`, { headers: { 'x-access-token': token } });
       if (!response.ok) {
         const errData = await response.json().catch(() => ({ message: `Erro HTTP: ${response.status}` }));
         throw new Error(errData.message || `Erro ao buscar pacientes: ${response.statusText}`);
@@ -80,8 +80,8 @@ const HistoricoPaciente = () => {
       return;
     }
     try {
-      // Corrigido para /api/historico e adicionado token
-      const response = await fetch(`${API_URL}/api/historico/patient/${patientId}`, { headers: { 'x-access-token': token } });
+      // Removido /api/ e adicionado token
+      const response = await fetch(`${API_URL}/historico/patient/${patientId}`, { headers: { 'x-access-token': token } });
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
@@ -200,7 +200,8 @@ const HistoricoPaciente = () => {
             setSaving(false);
             return;
         }
-        response = await fetch(`${API_URL}/api/historico`, { // Corrigido para /api/historico
+        // Removido /api/
+        response = await fetch(`${API_URL}/historico`, {
           method: 'POST',
           headers: headers,
           body: formData
@@ -208,7 +209,8 @@ const HistoricoPaciente = () => {
 
       } else {
         // Criar novo histórico
-        response = await fetch(`${API_URL}/api/historico`, { // Corrigido para /api/historico
+        // Removido /api/
+        response = await fetch(`${API_URL}/historico`, {
           method: 'POST',
           headers: headers,
           body: formData

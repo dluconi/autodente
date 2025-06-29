@@ -61,6 +61,7 @@ export default function Agendamento() {
   useEffect(() => {
     if (currentUser?.perfil === "admin" && token) {
       // Carrega a lista de dentistas para o admin poder selecionar qual agenda visualizar ou para quem agendar.
+      // Removido /api/ assumindo que API_URL já contém /api
       fetch(`${API_URL}/dentistas`, {
         headers: { "x-access-token": token }
       })
@@ -76,7 +77,8 @@ export default function Agendamento() {
     const carregarPacientes = async () => {
       if (!token) return;
         try {
-            const response = await fetch(`${API_URL}/api/pacientes`, { headers: { "x-access-token": token } });
+            // Removido /api/ assumindo que API_URL já contém /api
+            const response = await fetch(`${API_URL}/pacientes`, { headers: { "x-access-token": token } });
             if (!response.ok) throw new Error('Falha ao buscar pacientes');
             const data = await response.json();
             // O backend GET /api/pacientes retorna diretamente um array.
@@ -163,6 +165,7 @@ export default function Agendamento() {
     }
 
     try {
+      // Removido /api/ assumindo que API_URL já contém /api
       const response = await fetch(`${API_URL}/appointments`, {
         method: 'POST',
         headers: {
@@ -413,6 +416,7 @@ const HORARIOS_DO_DIA = (() => {
 const updateAppointmentOnBackend = async (id, newDate, newTime, durationMinutes, patientId, observacao) => {
   const token = localStorage.getItem("token");
   try {
+    // Removido /api/ assumindo que API_URL já contém /api
     const response = await fetch(`${API_URL}/appointments/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'x-access-token': token },
@@ -525,6 +529,7 @@ const CalendarioAgendamentos = ({ onSlotClick, dentistaIdParaVisualizacao }) => 
     if (!token) { setCalendarLoading(false); return; }
     try {
       setCalendarLoading(true);
+      // Removido /api/ assumindo que API_URL já contém /api
       let url = `${API_URL}/appointments`;
       const params = new URLSearchParams();
 
@@ -632,6 +637,7 @@ const CalendarioAgendamentos = ({ onSlotClick, dentistaIdParaVisualizacao }) => 
     if (window.confirm('Excluir este agendamento?')) {
       const token = localStorage.getItem("token");
       try {
+        // Removido /api/ assumindo que API_URL já contém /api
         const res = await fetch(`${API_URL}/appointments/${id}`, { method: 'DELETE', headers: { "x-access-token": token }});
         if (res.ok) { toast.success('Excluído!'); fetchCalendarAppointments(); }
         else { const err = await res.json().catch(()=>({})); toast.error(`Erro: ${err.message || 'Falha ao excluir'}`); }
