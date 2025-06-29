@@ -35,51 +35,76 @@ const VisualizarPaciente = () => {
   // const { currentUser } = useOutletContext(); // Se estivesse usando context de RRD Outlet
 
   useEffect(() => {
-    fetchPatient()
-    fetchBudgets()
-    fetchHistoricos()
+    const token = localStorage.getItem('token');
+    if (token) { // Ensure token exists before fetching
+      fetchPatient(token);
+      fetchBudgets(token);
+      fetchHistoricos(token);
+    } else {
+      setError("Usuário não autenticado. Por favor, faça login novamente.");
+      setLoading(false);
+    }
   }, [id])
 
-  const fetchPatient = async () => {
+  const fetchPatient = async (token) => {
+    setLoading(true); // Ensure loading is true at the start of this specific fetch
     try {
-      const response = await fetch(`${API_URL}/patients/${id}`)
-      const data = await response.json()
+      const response = await fetch(`${API_URL}/patients/${id}`, {
+        headers: { 'x-access-token': token }
+      });
+      const data = await response.json();
       
-      if (data.success) {
-        setPatient(data.data)
+      if (response.ok && data.success) {
+        setPatient(data.data);
+      } else if (!response.ok) {
+        setError(`Erro ao buscar paciente: ${data.message || response.statusText}`);
       } else {
-        setError('Paciente não encontrado')
+        setError(data.message || 'Paciente não encontrado');
       }
     } catch (err) {
-      setError('Erro ao carregar dados do paciente')
+      setError('Erro de conexão ao carregar dados do paciente: ' + err.message);
     } finally {
-      setLoading(false)
+      setLoading(false); // Set loading to false only after this fetch is done
     }
   }
 
-  const fetchBudgets = async () => {
+  const fetchBudgets = async (token) => {
     try {
-      const response = await fetch(`${API_URL}/budgets/patient/${id}`)
-      const data = await response.json()
+      const response = await fetch(`${API_URL}/budgets/patient/${id}`, {
+        headers: { 'x-access-token': token }
+      });
+      const data = await response.json();
       
-      if (data.success) {
-        setBudgets(data.budgets || [])
+      if (response.ok && data.success) {
+        setBudgets(data.budgets || []);
+      } else if (!response.ok) {
+        console.error(`Erro ao buscar orçamentos: ${data.message || response.statusText}`);
+        // Optionally set a specific error state for budgets if needed
+      } else {
+        console.error(data.message || 'Orçamentos não encontrados');
       }
     } catch (err) {
-      console.error('Erro ao carregar orçamentos:', err)
+      console.error('Erro de conexão ao carregar orçamentos:', err);
     }
   }
 
-  const fetchHistoricos = async () => {
+  const fetchHistoricos = async (token) => {
     try {
-      const response = await fetch(`${API_URL}/historico/patient/${id}`)
-      const data = await response.json()
+      const response = await fetch(`${API_URL}/historico/patient/${id}`, {
+        headers: { 'x-access-token': token }
+      });
+      const data = await response.json();
       
-      if (data.success) {
-        setHistoricos(data.historicos || [])
+      if (response.ok && data.success) {
+        setHistoricos(data.historicos || []);
+      } else if (!response.ok) {
+        console.error(`Erro ao buscar históricos: ${data.message || response.statusText}`);
+        // Optionally set a specific error state for historicos if needed
+      } else {
+        console.error(data.message || 'Históricos não encontrados');
       }
     } catch (err) {
-      console.error('Erro ao carregar históricos:', err)
+      console.error('Erro de conexão ao carregar históricos:', err);
     }
   }
 
@@ -259,7 +284,7 @@ const VisualizarPaciente = () => {
                   <p className="text-sm text-blue-600 font-medium">Endodontista</p>
                 </div>
               </div>
-              <Link to="/consulta-pacientes">
+              <Link to="/consulta">
                 <Button variant="ghost" size="sm" className="flex items-center space-x-2">
                   <ArrowLeft className="h-4 w-4" />
                   <span>Voltar</span>
