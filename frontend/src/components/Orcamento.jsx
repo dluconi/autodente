@@ -103,8 +103,8 @@ const Orcamento = () => {
       return;
     }
     try {
-      // Corrigido para /api/pacientes e adicionado token
-      const response = await fetch(`${API_URL}/api/pacientes`, { headers: { 'x-access-token': token } });
+      // Removido /api/ e adicionado token
+      const response = await fetch(`${API_URL}/pacientes`, { headers: { 'x-access-token': token } });
       if (!response.ok) {
         const errData = await response.json().catch(() => ({ message: `Erro HTTP: ${response.status}` }));
         throw new Error(errData.message || `Erro ao buscar pacientes: ${response.statusText}`);
@@ -216,11 +216,12 @@ const Orcamento = () => {
         return;
       }
 
-      const response = await fetch(`${API_URL}/api/budgets`, { // Corrigido para /api/budgets
+      // Removido /api/
+      const response = await fetch(`${API_URL}/budgets`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-access-token': token, // Adicionado token
+          'x-access-token': token,
         },
         body: JSON.stringify(budgetData),
       });
@@ -281,11 +282,12 @@ const Orcamento = () => {
         return;
       }
 
-      const response = await fetch(`${API_URL}/api/budgets`, { // Corrigido para /api/budgets
+      // Removido /api/
+      const response = await fetch(`${API_URL}/budgets`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-access-token': token, // Adicionado token
+          'x-access-token': token,
         },
         body: JSON.stringify(budgetData),
       });
@@ -294,11 +296,12 @@ const Orcamento = () => {
 
       if (result.success) {
         // Aprovar o orçamento
-        const approveResponse = await fetch(`${API_URL}/api/budgets/${result.budget.id}/approve`, { // Corrigido para /api/budgets
+        // Removido /api/
+        const approveResponse = await fetch(`${API_URL}/budgets/${result.budget.id}/approve`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-access-token': token, // Adicionado token
+            'x-access-token': token,
           },
         });
 
