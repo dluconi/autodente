@@ -43,7 +43,8 @@ export default function Agendamento() {
   const [pacientes, setPacientes] = useState([]);
   const [pacientesFiltrados, setPacientesFiltrados] = useState([]);
   const [pacienteSelecionadoId, setPacienteSelecionadoId] = useState('');
-  const [buscaPacienteInput, setBuscaPacienteInput] = useState('');
+  const [searchTerm, setSearchTerm] = useState(''); // Renomeado de buscaPacienteInput
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [dataAgendamento, setDataAgendamento] = useState('');
   const [horaAgendamento, setHoraAgendamento] = useState('');
   const [duracao, setDuracao] = useState('30');
@@ -64,11 +65,25 @@ export default function Agendamento() {
       fetch(`${API_URL}/dentistas`, {
         headers: { "x-access-token": token }
       })
-        .then(response => response.json())
-        .then(data => {
-          setDentistas(Array.isArray(data) ? data : []);
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`Falha ao buscar dentistas: ${response.statusText}`);
+          }
+          return response.json();
         })
-        .catch(error => console.error("Erro ao carregar dentistas:", error));
+        .then(data => {
+          console.log("Dentistas recebidos:", data); // Para depuração
+          setDentistas(Array.isArray(data) ? data : []);
+          if (!Array.isArray(data)) {
+            console.warn("/api/dentistas não retornou um array. Dados:", data);
+            toast.error("Formato inesperado de dados dos dentistas.");
+          }
+        })
+        .catch(error => {
+          console.error("Erro ao carregar dentistas:", error);
+          toast.error(`Erro ao carregar dentistas: ${error.message}`);
+          setDentistas([]); // Garante que seja um array vazio em caso de erro
+        });
     }
   }, [currentUser, token]);
 
@@ -93,22 +108,52 @@ export default function Agendamento() {
     carregarPacientes();
   }, [token]);
 
+  // Normalizador de CPF
+  const normalizeCpf = (cpf) => {
+    return cpf ? cpf.replace(/[^\d]/g, '') : '';
+  };
+
+  // useEffect para debounce
   useEffect(() => {
-    if (buscaPacienteInput.trim() === '') {
-      setPacientesFiltrados(pacientes);
-    } else {
-      const lowerBusca = buscaPacienteInput.toLowerCase();
-      const filtrados = pacientes.filter(p =>
-        p.nome.toLowerCase().includes(lowerBusca) ||
-        (p.sobrenome && p.sobrenome.toLowerCase().includes(lowerBusca)) ||
-        (p.cpf && p.cpf.includes(buscaPacienteInput))
-      );
-      setPacientesFiltrados(filtrados);
+    const timerId = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500); // 500ms de debounce
+
+    return () => {
+      clearTimeout(timerId);
+    };
+  }, [searchTerm]);
+
+  useEffect(() => {
+    const termoBusca = debouncedSearchTerm.trim();
+
+    if (termoBusca === '') {
+      // Mostra todos os pacientes se o termo de busca debounced (e o visual) estiverem vazios
+      setPacientesFiltrados(searchTerm.trim() === '' ? pacientes : []);
+      return;
     }
-  }, [buscaPacienteInput, pacientes]);
+
+    const lowerBusca = termoBusca.toLowerCase();
+    const cpfBuscaNormalizado = normalizeCpf(termoBusca);
+
+    const filtrados = pacientes.filter(p => {
+      const nomeCompleto = `${p.nome} ${p.sobrenome || ''}`.toLowerCase();
+      const cpfPacienteNormalizado = normalizeCpf(p.cpf);
+      const nomeIndividual = p.nome.toLowerCase();
+      const sobrenomeIndividual = p.sobrenome ? p.sobrenome.toLowerCase() : '';
+
+      return (
+        nomeCompleto.includes(lowerBusca) ||
+        nomeIndividual.includes(lowerBusca) ||
+        (sobrenomeIndividual && sobrenomeIndividual.includes(lowerBusca)) ||
+        (cpfPacienteNormalizado && cpfBuscaNormalizado && cpfPacienteNormalizado.includes(cpfBuscaNormalizado))
+      );
+    });
+    setPacientesFiltrados(filtrados);
+  }, [debouncedSearchTerm, pacientes, searchTerm]);
 
   const handleAgendar = async () => {
-    if (!pacienteSelecionadoId && !buscaPacienteInput.trim()) {
+    if (!pacienteSelecionadoId && !searchTerm.trim()) { // Usa searchTerm aqui
       toast.error('Por favor, selecione ou digite o nome do paciente.');
       return;
     }
@@ -153,7 +198,7 @@ export default function Agendamento() {
     if (pacienteSelecionadoId) {
       agendamentoPayload.patient_id = parseInt(pacienteSelecionadoId, 10);
     } else {
-      agendamentoPayload.patient_name = buscaPacienteInput.trim();
+      agendamentoPayload.patient_name = searchTerm.trim(); // Usa searchTerm aqui
     }
 
     if (!agendamentoPayload.patient_id && !agendamentoPayload.patient_name) {
@@ -175,10 +220,11 @@ export default function Agendamento() {
       if (result.success) {
         toast.success('Agendamento realizado com sucesso!');
         setPacienteSelecionadoId('');
-        setBuscaPacienteInput('');
+        setSearchTerm('');
+        setDebouncedSearchTerm('');
         setObservacao('');
         setDuracao('30');
-        setDentistaAgendamentoFormId(''); // Limpa o dentista selecionado no formulário do admin
+        setDentistaAgendamentoFormId('');
         setShowBuscaResultados(false);
         setIsModalOpen(false);
         // Atualizar o calendário para o dentista cuja agenda está sendo visualizada (se admin) ou para o dentista logado
@@ -197,7 +243,7 @@ export default function Agendamento() {
   };
 
   const handleBuscaInputChange = (e) => {
-    setBuscaPacienteInput(e.target.value);
+    setSearchTerm(e.target.value);
     setShowBuscaResultados(true);
     if (e.target.value) {
       setPacienteSelecionadoId('');
@@ -206,7 +252,9 @@ export default function Agendamento() {
 
   const selecionarPacienteDaLista = (paciente) => {
     setPacienteSelecionadoId(paciente.id.toString());
-    setBuscaPacienteInput(`${paciente.nome} ${paciente.sobrenome || ''}`.trim());
+    const nomeExibicao = `${paciente.nome} ${paciente.sobrenome || ''}`.trim();
+    setSearchTerm(nomeExibicao);
+    setDebouncedSearchTerm(nomeExibicao);
     setShowBuscaResultados(false);
   };
 
@@ -214,7 +262,8 @@ export default function Agendamento() {
     setDataAgendamento(dia.toISOString().split('T')[0]);
     setHoraAgendamento(horario);
     setPacienteSelecionadoId('');
-    setBuscaPacienteInput('');
+    setSearchTerm('');
+    setDebouncedSearchTerm('');
     setObservacao('');
     setDuracao('30');
     // Ao abrir o modal, se for admin, ele pode selecionar para qual dentista agendar.
@@ -237,7 +286,7 @@ export default function Agendamento() {
               <SelectContent>
                 {dentistas.filter(d => d.perfil === 'comum').map(dentista => (
                   <SelectItem key={dentista.id} value={dentista.id.toString()}>
-                    {dentista.nome}
+                    Dr. {dentista.nome}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -248,10 +297,10 @@ export default function Agendamento() {
           <Label htmlFor="busca-paciente-modal">Buscar Paciente Existente</Label>
           <div className="relative">
             <div className="flex">
-              <Input id="busca-paciente-modal" placeholder="Digite nome ou CPF do paciente" value={buscaPacienteInput} onChange={handleBuscaInputChange} onFocus={() => setShowBuscaResultados(true)} className="pr-10"/>
+              <Input id="busca-paciente-modal" placeholder="Digite nome ou CPF do paciente" value={searchTerm} onChange={handleBuscaInputChange} onFocus={() => setShowBuscaResultados(true)} className="pr-10"/>
               <Button type="button" variant="outline" size="sm" className="ml-2" onClick={() => setShowBuscaResultados(!showBuscaResultados)}><Search className="h-4 w-4" /></Button>
             </div>
-            {showBuscaResultados && buscaPacienteInput.trim() !== '' && (
+            {showBuscaResultados && searchTerm.trim() !== '' && (
               <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto">
                 {pacientesFiltrados.length > 0 ? pacientesFiltrados.map((paciente) => (
                   <div key={paciente.id} className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b" onClick={() => selecionarPacienteDaLista(paciente)}>
@@ -266,7 +315,7 @@ export default function Agendamento() {
           </div>
         </div>
         <div className="text-center text-gray-500 text-sm font-medium">
-          {pacienteSelecionadoId ? `Paciente selecionado: ${buscaPacienteInput}` : "Ou digite o nome do novo paciente acima para pré-cadastro."}
+          {pacienteSelecionadoId ? `Paciente selecionado: ${searchTerm}` : "Ou digite o nome do novo paciente acima para pré-cadastro."}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="flex flex-col space-y-1.5">
