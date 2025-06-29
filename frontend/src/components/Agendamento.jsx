@@ -52,11 +52,15 @@ export default function Agendamento() {
   const [showBuscaResultados, setShowBuscaResultados] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [dentistas, setDentistas] = useState([]);
-  const [dentistaSelecionadoId, setDentistaSelecionadoId] = useState(''); 
+  // Para o dropdown de seleção de dentista na visualização da agenda (APENAS ADMIN)
+  const [adminVisualizandoDentistaId, setAdminVisualizandoDentistaId] = useState('');
+  // Para o formulário de agendamento (usado por admin para definir quem realiza, ou por dentista para si mesmo)
+  const [dentistaAgendamentoFormId, setDentistaAgendamentoFormId] = useState('');
   const { currentUser, token } = useOutletContext();
 
   useEffect(() => {
     if (currentUser?.perfil === "admin" && token) {
+      // Carrega a lista de dentistas para o admin poder selecionar qual agenda visualizar ou para quem agendar.
       fetch(`${API_URL}/dentistas`, {
         headers: { "x-access-token": token }
       })
@@ -110,9 +114,23 @@ export default function Agendamento() {
       toast.error('Por favor, preencha a data e hora do agendamento.');
       return;
     }
-    if (currentUser?.perfil === 'admin' && !dentistaSelecionadoId) {
+    // No formulário de agendamento, o admin DEVE selecionar um dentista.
+    // O dentista comum sempre agenda para si mesmo.
+    let dentistaIdParaAgendar;
+    if (currentUser?.perfil === 'admin') {
+      if (!dentistaAgendamentoFormId) {
         toast.error('Admin, por favor selecione o dentista para o agendamento.');
         return;
+      }
+      dentistaIdParaAgendar = parseInt(dentistaAgendamentoFormId, 10);
+    } else {
+      dentistaIdParaAgendar = currentUser?.id;
+    }
+
+    if (!dentistaIdParaAgendar) {
+      toast.error('Não foi possível identificar o dentista para este agendamento.');
+      setLoading(false);
+      return;
     }
 
     setLoading(true);
@@ -121,10 +139,10 @@ export default function Agendamento() {
       appointment_time: horaAgendamento,
       observacao: observacao,
       duration_minutes: parseInt(duracao, 10),
-      dentista_id: currentUser?.perfil === 'admin' ? parseInt(dentistaSelecionadoId, 10) : currentUser?.id,
+      dentista_id: dentistaIdParaAgendar,
     };
 
-    if (!agendamentoPayload.dentista_id) {
+    if (!agendamentoPayload.dentista_id) { // Dupla verificação, mas útil.
         toast.error("Usuário ou dentista não identificado. Não é possível agendar.");
         setLoading(false);
         return;
@@ -158,11 +176,12 @@ export default function Agendamento() {
         setBuscaPacienteInput('');
         setObservacao('');
         setDuracao('30');
-        if (currentUser?.perfil === 'admin') {
-            setDentistaSelecionadoId('');
-        }
+        setDentistaAgendamentoFormId(''); // Limpa o dentista selecionado no formulário do admin
         setShowBuscaResultados(false);
         setIsModalOpen(false);
+        // Atualizar o calendário para o dentista cuja agenda está sendo visualizada (se admin) ou para o dentista logado
+        // A função fetchCalendarAppointments no CalendarioAgendamentos usará adminVisualizandoDentistaId
+        // Disparar um evento ou chamar uma função de refresh aqui, se necessário, ou confiar no useEffect do CalendarioAgendamentos.
         // Disparar atualização do calendário (ex: chamando fetchCalendarAppointments se estiver acessível)
       } else {
         toast.error(`Erro: ${result.message || 'Falha ao agendar.'}`);
@@ -196,9 +215,9 @@ export default function Agendamento() {
     setBuscaPacienteInput('');
     setObservacao('');
     setDuracao('30');
-    if (currentUser?.perfil === "admin") {
-      setDentistaSelecionadoId('');
-    }
+    // Ao abrir o modal, se for admin, ele pode selecionar para qual dentista agendar.
+    // Se for um dentista comum, o dentistaAgendamentoFormId não é usado (agendará para si mesmo).
+    setDentistaAgendamentoFormId(currentUser?.perfil === 'admin' ? adminVisualizandoDentistaId : ''); // Pre-seleciona o dentista que o admin está visualizando, ou vazio
     setIsModalOpen(true);
   };
 
@@ -208,12 +227,13 @@ export default function Agendamento() {
         {currentUser?.perfil === 'admin' && (
           <div className="flex flex-col space-y-1.5">
             <Label htmlFor="dentista-select-modal">Dentista Responsável</Label>
-            <Select value={dentistaSelecionadoId} onValueChange={setDentistaSelecionadoId} required>
+            {/* Admin seleciona para qual dentista COMUM o agendamento será feito */}
+            <Select value={dentistaAgendamentoFormId} onValueChange={setDentistaAgendamentoFormId} required>
               <SelectTrigger id="dentista-select-modal">
-                <SelectValue placeholder="Selecione o dentista" />
+                <SelectValue placeholder="Selecione o dentista para o agendamento" />
               </SelectTrigger>
               <SelectContent>
-                {dentistas.map(dentista => (
+                {dentistas.filter(d => d.perfil === 'comum').map(dentista => (
                   <SelectItem key={dentista.id} value={dentista.id.toString()}>
                     {dentista.nome}
                   </SelectItem>
@@ -301,10 +321,44 @@ export default function Agendamento() {
       </header>
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-800 mb-2">Agenda de Consultas</h2>
-          <p className="text-gray-600">Clique em um horário vago para agendar uma nova consulta.</p>
+          {/* Título removido conforme solicitado */}
         </div>
-        <div><CalendarioAgendamentos onSlotClick={abrirModalAgendamento} /></div>
+
+        {/* Seletor de Dentista para Admin */}
+        {currentUser?.perfil === 'admin' && (
+          <div className="mb-6 max-w-md">
+            <Label htmlFor="admin-dentista-select-agenda" className="text-sm font-medium text-gray-700">
+              Visualizar Agenda do Dentista:
+            </Label>
+            <Select value={adminVisualizandoDentistaId} onValueChange={(value) => {
+              setAdminVisualizandoDentistaId(value);
+              // A alteração aqui vai disparar o useEffect no CalendarioAgendamentos para recarregar os dados.
+            }}>
+              <SelectTrigger id="admin-dentista-select-agenda" className="mt-1">
+                <SelectValue placeholder="Selecione um dentista para ver a agenda" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Todos os Dentistas (Visão Geral)</SelectItem> {/* Opção para ver todos, se desejado */}
+                {dentistas.filter(d => d.perfil === 'comum').map(dentista => (
+                  <SelectItem key={dentista.id} value={dentista.id.toString()}>
+                    {dentista.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {adminVisualizandoDentistaId && (
+                <p className="text-sm text-gray-600 mt-2">
+                    Visualizando agenda de: <strong>{dentistas.find(d => d.id.toString() === adminVisualizandoDentistaId)?.nome || ''}</strong>
+                </p>
+            )}
+          </div>
+        )}
+
+        <div><CalendarioAgendamentos
+              onSlotClick={abrirModalAgendamento}
+              dentistaIdParaVisualizacao={currentUser?.perfil === 'admin' ? adminVisualizandoDentistaId : currentUser?.id}
+            />
+        </div>
       </main>
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-lg">
@@ -441,7 +495,8 @@ const DroppableSlot = ({ id, children, className, onSlotClick, isOver }) => {
   return <div ref={setNodeRef} className={`${className} ${isOver ? 'bg-green-200 opacity-70' : ''}`} onClick={onSlotClick}>{children}</div>;
 };
 
-const CalendarioAgendamentos = ({ onSlotClick }) => {
+// O componente CalendarioAgendamentos agora recebe dentistaIdParaVisualizacao
+const CalendarioAgendamentos = ({ onSlotClick, dentistaIdParaVisualizacao }) => {
   const [calendarAppointments, setCalendarAppointments] = useState([]);
   const [diaReferencia, setDiaReferencia] = useState(new Date());
   const [calendarLoading, setCalendarLoading] = useState(true);
@@ -457,16 +512,46 @@ const CalendarioAgendamentos = ({ onSlotClick }) => {
     try {
       setCalendarLoading(true);
       let url = `${API_URL}/appointments`;
-      if (currentUser && currentUser.perfil !== "admin") url = `${API_URL}/appointments/dentista/${currentUser.id}`;
+      const params = new URLSearchParams();
+
+      if (currentUser?.perfil === 'admin') {
+        if (dentistaIdParaVisualizacao) { // Se um ID de dentista específico foi passado para visualização
+          params.append('dentista_id', dentistaIdParaVisualizacao);
+        }
+        // Se admin e dentistaIdParaVisualizacao for "" (string vazia, para "Todos"), não adiciona o parâmetro,
+        // e o backend (como modificado) retornará todos os agendamentos.
+      } else if (currentUser?.perfil === 'comum') {
+        // Para usuário comum, sempre filtra pela sua própria ID.
+        // O backend já faz isso se nenhum dentista_id é passado e o perfil não é admin,
+        // mas podemos ser explícitos ou confiar na lógica do backend que já modificamos.
+        // A rota /api/appointments já foi ajustada para isso.
+        // Não é mais necessário /api/appointments/dentista/${currentUser.id}
+      }
+
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
+
       const response = await fetch(url, { headers: { "x-access-token": token } });
       const data = await response.json();
-      if (response.ok && data.success) setCalendarAppointments(Array.isArray(data.appointments) ? data.appointments : []);
-      else { setCalendarAppointments([]); toast.error(data.message || `Falha (${response.statusText})`); }
-    } catch (error) { setCalendarAppointments([]); toast.error("Erro de conexão."); } 
-    finally { setCalendarLoading(false); }
+      if (response.ok && data.success) {
+        setCalendarAppointments(Array.isArray(data.appointments) ? data.appointments : []);
+      } else {
+        setCalendarAppointments([]);
+        toast.error(data.message || `Falha ao carregar agendamentos (${response.statusText})`);
+      }
+    } catch (error) {
+      setCalendarAppointments([]);
+      toast.error("Erro de conexão ao carregar agendamentos.");
+    } finally {
+      setCalendarLoading(false);
+    }
   };
 
-  useEffect(() => { fetchCalendarAppointments(); }, [diaReferencia, currentUser, token]);
+  // Atualiza o calendário quando o dentistaIdParaVisualizacao (para admins) ou o usuário logado mudar.
+  useEffect(() => {
+    fetchCalendarAppointments();
+  }, [diaReferencia, currentUser, token, dentistaIdParaVisualizacao]);
 
   const handleDragStart = (event) => { setActiveId(event.active.id); if(event.active.data.current?.appointmentData) setDraggedAppointmentData(event.active.data.current.appointmentData); };
   const handleDragEnd = async (event) => {

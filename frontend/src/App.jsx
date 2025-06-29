@@ -17,6 +17,7 @@ import AlterarSenhaAdmin from './components/admin/AlterarSenhaAdmin'; // Pode se
 import TabelaPrecosAdmin from './components/admin/TabelaPrecosAdmin';
 import AprovacoesPagamento from './components/admin/AprovacoesPagamento'; // Novo componente
 import CadastroUsuario from './components/admin/CadastroUsuario'; // Novo para cadastrar dentistas/admins
+import ListaUsuarios from './components/admin/ListaUsuarios'; // Importa o novo componente
 import { Toaster } from '@/components/ui/sonner';
 import './App.css';
 import API_URL from './lib/api'; // Para chamadas à API
@@ -133,6 +134,7 @@ function App() {
             <Route path="/admin" element={<AdminRoute><AdminPanel /></AdminRoute>} />
             <Route path="/admin/gerenciar-usuarios" element={<AdminRoute><GerenciarDentistas /></AdminRoute>} />
             <Route path="/admin/cadastrar-usuario" element={<AdminRoute><CadastroUsuario /></AdminRoute>} />
+            <Route path="/admin/usuarios" element={<AdminRoute><ListaUsuarios /></AdminRoute>} /> {/* Nova rota */}
             <Route path="/admin/alterar-senha" element={<AdminRoute><AlterarSenhaAdmin /></AdminRoute>} />
             <Route path="/admin/tabela-precos" element={<AdminRoute><TabelaPrecosAdmin /></AdminRoute>} />
             <Route path="/admin/aprovacoes" element={<AdminRoute><AprovacoesPagamento /></AdminRoute>} />

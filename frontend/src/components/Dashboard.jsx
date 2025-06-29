@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import {
   Stethoscope, UserPlus, Users, FileText, Home, Calendar, LogOut, BarChart,
-  DollarSign, ShieldCheck, UserCog
+  DollarSign, ShieldCheck, UserCog, ListChecks
 } from 'lucide-react';
 import AdminButton from './AdminButton';
 
@@ -238,6 +238,28 @@ const Dashboard = ({ currentUser, onLogout }) => {
                   <CardContent className="flex-grow">
                     <p className="text-sm text-gray-600">
                       Crie novas contas de usuário para o sistema.
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
+
+              {/* Listar Usuários */}
+              <Link to="/admin/usuarios" className="flex">
+                <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-cyan-500 w-full flex flex-col">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center space-x-3">
+                      <div className="bg-cyan-100 p-2 rounded-full">
+                        <ListChecks className="h-6 w-6 text-cyan-600" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-lg text-gray-800">Listar Usuários</CardTitle>
+                        <CardDescription>Gerenciar usuários existentes</CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="flex-grow">
+                    <p className="text-sm text-gray-600">
+                      Visualize, edite e gerencie o status dos usuários.
                     </p>
                   </CardContent>
                 </Card>
