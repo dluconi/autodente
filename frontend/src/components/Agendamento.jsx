@@ -100,27 +100,28 @@ export default function Agendamento() {
   }, [currentUser, token]);
 
   useEffect(() => {
-    const carregarPacientes = async () => {
-        }
-        const data = await response.json();
-        // console.log("[Debug] Pacientes recebidos RAW:", data);
-        if (Array.isArray(data)) {
-          setPacientes(data);
-          // console.log(`[Debug] setPacientes chamado com ${data.length} itens.`);
-        } else {
-          console.warn("/api/pacientes não retornou um array. Dados:", data); // Manter este warn
-          toast.error("Formato inesperado de dados dos pacientes recebido do servidor.");
-          setPacientes([]);
-        }
-      } catch (error) {
-        console.error("Erro CRÍTICO ao carregar pacientes:", error); // Manter este error
-        toast.error(`Erro CRÍTICO ao carregar lista de pacientes: ${error.message}`);
+  const carregarPacientes = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_URL}/patients`, {
+        headers: { "x-access-token": token },
+      });
+      const data = await response.json();
+
+      if (Array.isArray(data)) {
+        setPacientes(data);
+      } else {
+        toast.error("Formato inesperado de dados dos pacientes recebido do servidor.");
         setPacientes([]);
-        setPacientesFiltrados([]);
       }
-    };
-    carregarPacientes();
-  }, [token]);
+    } catch (error) {
+      console.error("Erro CRÍTICO ao carregar pacientes:", error);
+      toast.error(`Erro CRÍTICO ao carregar lista de pacientes: ${error.message}`);
+    }
+  };
+
+  carregarPacientes();
+}, []);
 
   // Normalizador de CPF
   const normalizeCpf = (cpf) => {
